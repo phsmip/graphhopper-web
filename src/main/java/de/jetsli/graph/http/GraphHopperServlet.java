@@ -24,22 +24,21 @@ import de.jetsli.graph.storage.Location2IDIndex;
 import de.jetsli.graph.util.StopWatch;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
-import org.apache.log4j.Logger;
-
 import static javax.servlet.http.HttpServletResponse.*;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Peter Karich
  */
 public class GraphHopperServlet extends HttpServlet {
 
-    private Logger logger = Logger.getLogger(getClass());
+    private Logger logger = LoggerFactory.getLogger(getClass());
     @Inject
     private Graph graph;
     @Inject
@@ -90,7 +89,8 @@ public class GraphHopperServlet extends HttpServlet {
                     object("coordinates", points).
                     endObject().
                     endObject();
-            logger.info(fromLat + "," + fromLon + "->" + toLat + "," + toLon + " => " + p.locations());
+            logger.info(fromLat + "," + fromLon + "->" + toLat + "," + toLon + " => " + p.locations()
+                    + ", routeTime:" + routeTime + ", lookupTime:" + lookupTime);
             writeResponse(res, json.build().toString(2));
         } catch (Exception ex) {
             logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);

@@ -9,7 +9,7 @@ function myinit() {
 function initMap() {
     var map = L.map('map', {
         center: [52.532932,13.4],
-        zoom: 12
+        zoom: 11
     });
     L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
         key: '43b079df806c4e03b102055c4e1a8ba8',
@@ -20,8 +20,11 @@ function initMap() {
     
     var popup = L.popup();
     var startPoint = null;
+    var routingLayer = null;
     function onMapClick(e) {        
         if(!startPoint) {
+            if(routingLayer)
+                routingLayer.clearLayers();
             popup.setLatLng(e.latlng).setContent("Start").openOn(map);
             startPoint = e.latlng;
         } else {
@@ -29,20 +32,25 @@ function initMap() {
             doRequest(startPoint.lat + "," + startPoint.lng, e.latlng.lat + "," + e.latlng.lng, function (json) {
                 
                 // json.route.data needs to be in geoJson format => where a points is LON,LAT!
-//                var myLines = [{
-//                    "type": "LineString",
-//                    "coordinates": [[13.276863,52.439688], [13.479424,52.532932], [13.47,52.53]]
-//                }];
-
+                // http://leaflet.cloudmade.com/examples/geojson.html
+                // some more code for geoJson
+                // https://github.com/CloudMade/Leaflet/issues/327
+                // https://github.com/CloudMade/Leaflet/issues/822
                 var myStyle = {
                     "color": 'blue',
                     "weight": 5,
                     "opacity": 0.55
                 };
 
-                L.geoJson([json.route.data], {
-                    style: myStyle
-                }).addTo(map);
+                var geojsonFeature = {
+                    "type": "Feature",                   
+                    // "style": myStyle,                
+                    "geometry": json.route.data
+                };
+                routingLayer = L.geoJson().addTo(map);
+                routingLayer.addData(geojsonFeature);
+                
+                $("#info").html("distance in km " + json.route.distance); 
             });
             startPoint = null;
         }
@@ -80,8 +88,8 @@ function doRequest(from, to, callback) {
     var host = location.protocol + "//" + location.host;
     
     // does not work in chrome
-//    if(location.protocol == "file:")
-//        host = "http://localhost";
+    //    if(location.protocol == "file:")
+    //        host = "http://localhost";
                 
     var url = host + "/api?from=" + from + "&to=" + to;
     console.log(url);
