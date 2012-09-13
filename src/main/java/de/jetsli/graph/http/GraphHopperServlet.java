@@ -18,11 +18,13 @@ package de.jetsli.graph.http;
 import com.google.inject.Inject;
 import de.jetsli.graph.routing.AStar;
 import de.jetsli.graph.routing.Path;
+import de.jetsli.graph.routing.util.FastestCalc;
 import de.jetsli.graph.storage.Graph;
 import de.jetsli.graph.storage.Location2IDIndex;
 import de.jetsli.graph.util.StopWatch;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -47,31 +49,32 @@ public class GraphHopperServlet extends HttpServlet {
     public void doGet(HttpServletRequest req, HttpServletResponse res)
             throws ServletException, IOException {
 
+        String fromParam = getParam(req, "from");
+        String[] fromStrs = fromParam.split(",");
+        double fromLat = Double.parseDouble(fromStrs[0]);
+        double fromLon = Double.parseDouble(fromStrs[1]);
+
+        String toParam = getParam(req, "to");
+        String[] toStrs = toParam.split(",");
+        double toLat = Double.parseDouble(toStrs[0]);
+        double toLon = Double.parseDouble(toStrs[1]);
         try {
-            String fromParam = getParam(req, "from");
-            String[] fromStrs = fromParam.split(",");
-            double fromLat = Double.parseDouble(fromStrs[0]);
-            double fromLon = Double.parseDouble(fromStrs[1]);
-
-            String toParam = getParam(req, "to");
-            String[] toStrs = toParam.split(",");
-            double toLat = Double.parseDouble(toStrs[0]);
-            double toLon = Double.parseDouble(toStrs[1]);
-
             StopWatch sw = new StopWatch().start();
             int from = index.findID(fromLat, fromLon);
             int to = index.findID(toLat, toLon);
             float lookupTime = sw.stop().getSeconds();
 
             sw = new StopWatch().start();
-            Path p = new AStar(graph).calcPath(from, to);
+            Path p = new AStar(graph).setType(FastestCalc.DEFAULT).calcPath(from, to);
             int locs = p.locations();
             List<Double[]> points = new ArrayList<Double[]>(locs);
             for (int i = 0; i < locs; i++) {
                 int loc = p.location(i);
+                // geoJson is LON,LAT!
                 points.add(new Double[]{
-                            graph.getLatitude(loc),
-                            graph.getLongitude(loc)});
+                            graph.getLongitude(loc),
+                            graph.getLatitude(loc)
+                        });
             }
             float routeTime = sw.stop().getSeconds();
             JSONBuilder json = new JSONBuilder().
@@ -81,12 +84,16 @@ public class GraphHopperServlet extends HttpServlet {
                     object("routeTime", routeTime).
                     endObject().
                     startObject("route").
-                    object("points", points).
                     object("distance", p.distance()).
+                    startObject("data").
+                    object("type", "LineString").
+                    object("coordinates", points).
+                    endObject().
                     endObject();
-
+            logger.info(fromLat + "," + fromLon + "->" + toLat + "," + toLon + " => " + p.locations());
             writeResponse(res, json.build().toString(2));
         } catch (Exception ex) {
+            logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
             writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
         }
     }
@@ -108,6 +115,7 @@ public class GraphHopperServlet extends HttpServlet {
 
     public void writeResponse(HttpServletResponse res, String str) {
         try {
+            res.setStatus(SC_OK);
             res.getWriter().append(str);
         } catch (IOException ex) {
             logger.error("Cannot write message:" + str, ex);

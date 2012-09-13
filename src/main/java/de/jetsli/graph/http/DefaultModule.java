@@ -15,7 +15,8 @@ public class DefaultModule extends AbstractModule {
     @Override
     protected void configure() {
         String path = "/media/SAMSUNG/maps/";
-        CmdArgs args = new CmdArgs().put("osm", path + "berlin.osm").put("graph", path + "graph-berlin");
+        String area = "berlin";
+        CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", path + "graph-" + area);
         Graph graph;
         try {
             graph = OSMReader.osm2Graph(args);

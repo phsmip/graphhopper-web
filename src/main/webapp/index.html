@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <title>GraphHopper Web Demo</title>
+        <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+        
+        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.4.4/leaflet.css" />
+        <!--[if lte IE 8]>
+            <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.4.4/leaflet.ie.css" />
+        <![endif]-->
+        <script src="http://cdn.leafletjs.com/leaflet-0.4.4/leaflet.js"></script>
+        <script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>        
+        <script type="text/javascript" src="js/main.js"></script>
+        <script type="text/javascript">              
+            $(document).ready(function(e) {
+                myinit();
+            });
+        </script>
+        <style>
+            #map { 
+                width: 800px;
+                height: 600px; 
+            }
+        </style>
+    </head>
+    <body>
+        <div>Berlin Map</div>
+        <div id="map"/>
+    </body>
+</html>
