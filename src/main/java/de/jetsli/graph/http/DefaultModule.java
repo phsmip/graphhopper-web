@@ -15,8 +15,9 @@ public class DefaultModule extends AbstractModule {
     @Override
     protected void configure() {
         String path = "/media/SAMSUNG/maps/";
-        String area = "berlin";
-        CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", path + "graph-" + area);
+        // String area = "berlin";
+        String area = "germany";
+        CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", path + area + "-gh");
         Graph graph;
         try {
             graph = OSMReader.osm2Graph(args);
@@ -25,7 +26,7 @@ public class DefaultModule extends AbstractModule {
             throw new RuntimeException("cannot initialize graph", ex);
         }
 
-        Location2IDIndex index = new Location2IDQuadtree(graph).prepareIndex(2000);
+        Location2IDIndex index = new Location2IDQuadtree(graph).prepareIndex(200000);
         bind(Location2IDIndex.class).toInstance(index);
     }
 }
