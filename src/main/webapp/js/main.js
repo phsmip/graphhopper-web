@@ -1,14 +1,30 @@
 function myinit() {
-    initMap();    
     var paramMap = parseUrlAndRequest();
-   
+    var from = {};        
+    if(paramMap.from) {
+        try {
+            var index = paramMap.from.indexOf(",");
+            from.lat = parseFloat(paramMap.from.substr(0, index));
+            from.lng = parseFloat(paramMap.from.substr(index + 1));
+        } catch(ex) {            
+        }
+    }
+    
+    if(!from.lat || !from.lng) {
+        from.lat = 52.532932;
+        from.lng = 13.4;
+    }
+    initMap(from);
     if(paramMap.from && paramMap.to)
-        doRequest(paramMap.from, paramMap.to);    
+        route(paramMap.from, paramMap.to);    
 }
 
-function initMap() {
-    var map = L.map('map', {
-        center: [52.532932,13.4],
+var routingLayer;
+var map;
+
+function initMap(center) {
+    map = L.map('map', {
+        center: [center.lat, center.lng],
         zoom: 11
     });
     L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
@@ -19,8 +35,7 @@ function initMap() {
     // max.setMaxBounds( <LatLngBounds> bounds ) 
     
     var popup = L.popup();
-    var startPoint = null;
-    var routingLayer = null;
+    var startPoint = null;    
     function onMapClick(e) {        
         if(!startPoint) {
             if(routingLayer)
@@ -29,29 +44,8 @@ function initMap() {
             startPoint = e.latlng;
         } else {
             popup.setLatLng(e.latlng).setContent("End").openOn(map);
-            doRequest(startPoint.lat + "," + startPoint.lng, e.latlng.lat + "," + e.latlng.lng, function (json) {
-                
-                // json.route.data needs to be in geoJson format => where a points is LON,LAT!
-                // http://leaflet.cloudmade.com/examples/geojson.html
-                // some more code for geoJson
-                // https://github.com/CloudMade/Leaflet/issues/327
-                // https://github.com/CloudMade/Leaflet/issues/822
-                var myStyle = {
-                    "color": 'blue',
-                    "weight": 5,
-                    "opacity": 0.55
-                };
-
-                var geojsonFeature = {
-                    "type": "Feature",                   
-                    // "style": myStyle,                
-                    "geometry": json.route.data
-                };
-                routingLayer = L.geoJson().addTo(map);
-                routingLayer.addData(geojsonFeature);
-                
-                $("#info").html("distance in km " + json.route.distance); 
-            });
+            var endPoint = e.latlng;
+            route(startPoint.lat + "," + startPoint.lng, endPoint.lat + "," + endPoint.lng);
             startPoint = null;
         }
     }
@@ -59,6 +53,31 @@ function initMap() {
     map.on('click', onMapClick);
 }
 
+function route(start, end) {
+    doRequest(start, end, function (json) {
+                
+        // json.route.data needs to be in geoJson format => where a points is LON,LAT!
+        // http://leaflet.cloudmade.com/examples/geojson.html
+        // some more code for geoJson
+        // https://github.com/CloudMade/Leaflet/issues/327
+        // https://github.com/CloudMade/Leaflet/issues/822
+        var myStyle = {
+            "color": 'blue',
+            "weight": 5,
+            "opacity": 0.55
+        };
+
+        var geojsonFeature = {
+            "type": "Feature",                   
+            // "style": myStyle,                
+            "geometry": json.route.data
+        };
+        routingLayer = L.geoJson().addTo(map);
+        routingLayer.addData(geojsonFeature);
+                
+        $("#info").html("distance in km " + json.route.distance); 
+    });
+}
 function parseUrlAndRequest() {
     var paramMap = function () {
         var res = {};

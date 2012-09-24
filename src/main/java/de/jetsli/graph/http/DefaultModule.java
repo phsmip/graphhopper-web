@@ -16,8 +16,8 @@ public class DefaultModule extends AbstractModule {
     @Override
     protected void configure() {
         String path = "/media/SAMSUNG/maps/";
-        // String area = "berlin";
-        String area = "germany";
+        String area = "unterfranken";
+//        String area = "germany";
         String graphhopperLoc = path + area + "-gh";
         CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", graphhopperLoc);
 //                .put("graphClass", "MMapGraph");
