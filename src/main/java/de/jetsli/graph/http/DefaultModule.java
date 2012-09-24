@@ -5,6 +5,7 @@ import de.jetsli.graph.reader.OSMReader;
 import de.jetsli.graph.storage.Graph;
 import de.jetsli.graph.storage.Location2IDIndex;
 import de.jetsli.graph.storage.Location2IDQuadtree;
+import de.jetsli.graph.storage.RAMDirectory;
 import de.jetsli.graph.util.CmdArgs;
 
 /**
@@ -17,7 +18,9 @@ public class DefaultModule extends AbstractModule {
         String path = "/media/SAMSUNG/maps/";
         // String area = "berlin";
         String area = "germany";
-        CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", path + area + "-gh");
+        String graphhopperLoc = path + area + "-gh";
+        CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", graphhopperLoc);
+//                .put("graphClass", "MMapGraph");
         Graph graph;
         try {
             graph = OSMReader.osm2Graph(args);
@@ -26,7 +29,7 @@ public class DefaultModule extends AbstractModule {
             throw new RuntimeException("cannot initialize graph", ex);
         }
 
-        Location2IDIndex index = new Location2IDQuadtree(graph).prepareIndex(200000);
+        Location2IDIndex index = new Location2IDQuadtree(graph, new RAMDirectory("loc2idIndex")).prepareIndex(200000);
         bind(Location2IDIndex.class).toInstance(index);
     }
 }

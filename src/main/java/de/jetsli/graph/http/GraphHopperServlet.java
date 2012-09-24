@@ -61,7 +61,7 @@ public class GraphHopperServlet extends HttpServlet {
             StopWatch sw = new StopWatch().start();
             int from = index.findID(fromLat, fromLon);
             int to = index.findID(toLat, toLon);
-            float lookupTime = sw.stop().getSeconds();
+            float idLookupTime = sw.stop().getSeconds();
 
             sw = new StopWatch().start();
             Path p = new AStar(graph).setType(FastestCalc.DEFAULT).calcPath(from, to);
@@ -75,12 +75,12 @@ public class GraphHopperServlet extends HttpServlet {
                             graph.getLatitude(loc)
                         });
             }
-            float routeTime = sw.stop().getSeconds();
+            float routeLookupTime = sw.stop().getSeconds();
             JSONBuilder json = new JSONBuilder().
                     startObject("info").
-                    object("time", lookupTime + routeTime).
-                    object("lookupTime", lookupTime).
-                    object("routeTime", routeTime).
+                    object("time", idLookupTime + routeLookupTime).
+                    object("lookupTime", idLookupTime).
+                    object("routeTime", routeLookupTime).
                     endObject().
                     startObject("route").
                     object("distance", p.distance()).
@@ -89,8 +89,9 @@ public class GraphHopperServlet extends HttpServlet {
                     object("coordinates", points).
                     endObject().
                     endObject();
-            logger.info(fromLat + "," + fromLon + "->" + toLat + "," + toLon + " => " + p.locations()
-                    + ", routeTime:" + routeTime + ", lookupTime:" + lookupTime);
+            logger.info(fromLat + "," + fromLon + "->" + toLat + "," + toLon
+                    + ", distance: " + p.distance() + ", locations:" + p.locations()
+                    + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);
             writeResponse(res, json.build().toString(2));
         } catch (Exception ex) {
             logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
