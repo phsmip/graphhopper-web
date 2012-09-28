@@ -1,13 +1,15 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <actions>
-        <action>
-            <actionName>CUSTOM-jetty:run</actionName>
-            <displayName>jetty:run</displayName>
-            <goals>
-                <goal>jetty:run</goal>
-            </goals>
-            <properties>
-                <skipTests>true</skipTests>
-            </properties>
-        </action>
-    </actions>
+    <action>
+        <actionName>CUSTOM-jetty:run</actionName>
+        <displayName>jetty:run</displayName>
+        <goals>
+            <goal>jetty:run</goal>
+        </goals>
+        <properties>
+            <maven.test.skip>true</maven.test.skip>
+            <!-- for germany we need a bit more RAM -->
+            <Env.MAVEN_OPTS>-Xms2500m -Xms2500m -XX:PermSize=22m -XX:MaxPermSize=22m</Env.MAVEN_OPTS>
+        </properties>
+    </action>
+</actions>

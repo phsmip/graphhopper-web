@@ -20,7 +20,7 @@ public class DefaultModule extends AbstractModule {
 //        String area = "germany";
         String graphhopperLoc = path + area + "-gh";
         CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", graphhopperLoc);
-//                .put("graphClass", "MMapGraph");
+//                .put("storage", "mmap");
         Graph graph;
         try {
             graph = OSMReader.osm2Graph(args);
@@ -29,7 +29,8 @@ public class DefaultModule extends AbstractModule {
             throw new RuntimeException("cannot initialize graph", ex);
         }
 
-        Location2IDIndex index = new Location2IDQuadtree(graph, new RAMDirectory("loc2idIndex")).prepareIndex(200000);
+        Location2IDIndex index = new Location2IDQuadtree(graph, 
+                new RAMDirectory(graphhopperLoc + "/loc2idIndex")).prepareIndex(200000);
         bind(Location2IDIndex.class).toInstance(index);
     }
 }

@@ -64,7 +64,7 @@ public class GraphHopperServlet extends HttpServlet {
             float idLookupTime = sw.stop().getSeconds();
 
             sw = new StopWatch().start();
-            Path p = new AStar(graph).setType(FastestCalc.DEFAULT).calcPath(from, to);
+            Path p = new AStar(graph).setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
             int locs = p.locations();
             List<Double[]> points = new ArrayList<Double[]>(locs);
             for (int i = 0; i < locs; i++) {

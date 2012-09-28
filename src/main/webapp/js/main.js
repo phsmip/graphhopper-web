@@ -23,6 +23,7 @@ var routingLayer;
 var map;
 
 function initMap(center) {
+    console.log("init map at " + center.lat + "," + center.lng);
     map = L.map('map', {
         center: [center.lat, center.lng],
         zoom: 11
