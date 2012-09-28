@@ -20,7 +20,7 @@ public class DefaultModule extends AbstractModule {
 //        String area = "germany";
         String graphhopperLoc = path + area + "-gh";
         CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", graphhopperLoc);
-//                .put("storage", "mmap");
+//                .put("dataaccess", "mmap");
         Graph graph;
         try {
             graph = OSMReader.osm2Graph(args);
