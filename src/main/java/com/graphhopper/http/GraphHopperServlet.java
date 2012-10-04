@@ -16,13 +16,13 @@
 package com.graphhopper.http;
 
 import com.google.inject.Inject;
+import com.graphhopper.routing.AStar;
 import com.graphhopper.routing.AStarBidirection;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.PathBidirRef;
 import com.graphhopper.routing.PathPrio;
 import com.graphhopper.routing.util.EdgePrioFilter;
 import com.graphhopper.routing.util.FastestCalc;
-import com.graphhopper.routing.util.PrepareRoutingShortcuts;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
 import com.graphhopper.storage.PriorityGraph;
@@ -69,21 +69,7 @@ public class GraphHopperServlet extends HttpServlet {
             float idLookupTime = sw.stop().getSeconds();
 
             sw = new StopWatch().start();
-            // Path p = new AStar(graph).setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
-            
-            AStarBidirection algo = new AStarBidirection(graph) {
-                @Override public String toString() {
-                    return "AStarBidirection|Shortcut|" + weightCalc;
-                }
-
-                @Override protected PathBidirRef createPath() {
-                    // expand skipped nodes
-                    return new PathPrio((PriorityGraph) graph, weightCalc);
-                }
-            }.setApproximation(true);
-            algo.setEdgeFilter(new EdgePrioFilter((PriorityGraph) graph));
-            Path p = algo.setType(FastestCalc.DEFAULT).calcPath(from, to);
-            // Path p = algo.setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
+            Path p = calcPath(from, to);
             int locs = p.locations();
             List<Double[]> points = new ArrayList<Double[]>(locs);
             for (int i = 0; i < locs; i++) {
@@ -140,5 +126,27 @@ public class GraphHopperServlet extends HttpServlet {
         } catch (IOException ex) {
             logger.error("Cannot write message:" + str, ex);
         }
+    }
+
+    private Path calcPath(int from, int to) {
+        AStar algo = new AStar(graph);
+        return algo.setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
+    }
+
+    private Path calcPathPrio(int from, int to) {
+        // Path p = new AStar(graph).setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
+
+        AStarBidirection algo = new AStarBidirection(graph) {
+            @Override public String toString() {
+                return "AStarBidirection|Shortcut|" + weightCalc;
+            }
+
+            @Override protected PathBidirRef createPath() {
+                // expand skipped nodes
+                return new PathPrio((PriorityGraph) graph, weightCalc);
+            }
+        }.setApproximation(true);
+        algo.setEdgeFilter(new EdgePrioFilter((PriorityGraph) graph));
+        return algo.setType(FastestCalc.DEFAULT).calcPath(from, to);
     }
 }

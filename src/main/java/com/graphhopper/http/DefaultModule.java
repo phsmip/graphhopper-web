@@ -7,17 +7,21 @@ import com.graphhopper.storage.Location2IDIndex;
 import com.graphhopper.storage.Location2IDQuadtree;
 import com.graphhopper.storage.RAMDirectory;
 import com.graphhopper.util.CmdArgs;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 /**
  * @author Peter Karich, pkarich@pannous.info
  */
 public class DefaultModule extends AbstractModule {
 
+    private Logger logger = LoggerFactory.getLogger(getClass());
+
     @Override
     protected void configure() {
         String path = "/media/SAMSUNG/maps/";
-//        String area = "unterfranken";
-        String area = "germany";
+        String area = "unterfranken";
+//        String area = "germany";
         String graphhopperLoc = path + area + "-gh";
         CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", graphhopperLoc);
 //                .put("dataaccess", "mmap");
@@ -29,7 +33,8 @@ public class DefaultModule extends AbstractModule {
             throw new RuntimeException("cannot initialize graph", ex);
         }
 
-        Location2IDIndex index = new Location2IDQuadtree(graph, 
+        logger.info("now initializing index");
+        Location2IDIndex index = new Location2IDQuadtree(graph,
                 new RAMDirectory(graphhopperLoc + "/loc2idIndex")).prepareIndex(200000);
         bind(Location2IDIndex.class).toInstance(index);
     }
