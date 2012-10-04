@@ -1,12 +1,12 @@
-package de.jetsli.graph.http;
+package com.graphhopper.http;
 
 import com.google.inject.AbstractModule;
-import de.jetsli.graph.reader.OSMReader;
-import de.jetsli.graph.storage.Graph;
-import de.jetsli.graph.storage.Location2IDIndex;
-import de.jetsli.graph.storage.Location2IDQuadtree;
-import de.jetsli.graph.storage.RAMDirectory;
-import de.jetsli.graph.util.CmdArgs;
+import com.graphhopper.reader.OSMReader;
+import com.graphhopper.storage.Graph;
+import com.graphhopper.storage.Location2IDIndex;
+import com.graphhopper.storage.Location2IDQuadtree;
+import com.graphhopper.storage.RAMDirectory;
+import com.graphhopper.util.CmdArgs;
 
 /**
  * @author Peter Karich, pkarich@pannous.info
@@ -16,8 +16,8 @@ public class DefaultModule extends AbstractModule {
     @Override
     protected void configure() {
         String path = "/media/SAMSUNG/maps/";
-        String area = "unterfranken";
-//        String area = "germany";
+//        String area = "unterfranken";
+        String area = "germany";
         String graphhopperLoc = path + area + "-gh";
         CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", graphhopperLoc);
 //                .put("dataaccess", "mmap");

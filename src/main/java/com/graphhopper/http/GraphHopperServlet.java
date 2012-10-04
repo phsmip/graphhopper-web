@@ -13,15 +13,20 @@
  *  See the License for the specific language governing permissions and
  *  limitations under the License.
  */
-package de.jetsli.graph.http;
+package com.graphhopper.http;
 
 import com.google.inject.Inject;
-import de.jetsli.graph.routing.AStar;
-import de.jetsli.graph.routing.Path;
-import de.jetsli.graph.routing.util.FastestCalc;
-import de.jetsli.graph.storage.Graph;
-import de.jetsli.graph.storage.Location2IDIndex;
-import de.jetsli.graph.util.StopWatch;
+import com.graphhopper.routing.AStarBidirection;
+import com.graphhopper.routing.Path;
+import com.graphhopper.routing.PathBidirRef;
+import com.graphhopper.routing.PathPrio;
+import com.graphhopper.routing.util.EdgePrioFilter;
+import com.graphhopper.routing.util.FastestCalc;
+import com.graphhopper.routing.util.PrepareRoutingShortcuts;
+import com.graphhopper.storage.Graph;
+import com.graphhopper.storage.Location2IDIndex;
+import com.graphhopper.storage.PriorityGraph;
+import com.graphhopper.util.StopWatch;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -64,7 +69,21 @@ public class GraphHopperServlet extends HttpServlet {
             float idLookupTime = sw.stop().getSeconds();
 
             sw = new StopWatch().start();
-            Path p = new AStar(graph).setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
+            // Path p = new AStar(graph).setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
+            
+            AStarBidirection algo = new AStarBidirection(graph) {
+                @Override public String toString() {
+                    return "AStarBidirection|Shortcut|" + weightCalc;
+                }
+
+                @Override protected PathBidirRef createPath() {
+                    // expand skipped nodes
+                    return new PathPrio((PriorityGraph) graph, weightCalc);
+                }
+            }.setApproximation(true);
+            algo.setEdgeFilter(new EdgePrioFilter((PriorityGraph) graph));
+            Path p = algo.setType(FastestCalc.DEFAULT).calcPath(from, to);
+            // Path p = algo.setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
             int locs = p.locations();
             List<Double[]> points = new ArrayList<Double[]>(locs);
             for (int i = 0; i < locs; i++) {

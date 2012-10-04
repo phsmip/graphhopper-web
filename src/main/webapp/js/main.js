@@ -1,6 +1,6 @@
 function myinit() {
     var paramMap = parseUrlAndRequest();
-    var from = {};        
+    var from = {};      
     if(paramMap.from) {
         try {
             var index = paramMap.from.indexOf(",");

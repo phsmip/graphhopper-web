@@ -12,7 +12,7 @@
  * material is strictly forbidden unless prior written 
  * permission is obtained from Pannous GmbH.
  */
-package de.jetsli.graph.http;
+package com.graphhopper.http;
 
 import java.util.HashMap;
 import java.util.Map;

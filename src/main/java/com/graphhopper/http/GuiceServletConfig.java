@@ -1,4 +1,4 @@
-package de.jetsli.graph.http;
+package com.graphhopper.http;
 
 import com.google.inject.Guice;
 import com.google.inject.Injector;
