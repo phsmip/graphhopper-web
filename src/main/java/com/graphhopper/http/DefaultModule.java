@@ -2,6 +2,7 @@ package com.graphhopper.http;
 
 import com.google.inject.AbstractModule;
 import com.graphhopper.reader.OSMReader;
+import com.graphhopper.routing.util.AlgorithmPreparation;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
 import com.graphhopper.storage.Location2IDQuadtree;
@@ -23,12 +24,15 @@ public class DefaultModule extends AbstractModule {
         String area = "unterfranken";
 //        String area = "germany";
         String graphhopperLoc = path + area + "-gh";
-        CmdArgs args = new CmdArgs().put("osm", path + area + ".osm").put("graph", graphhopperLoc);
-//                .put("dataaccess", "mmap");
+        CmdArgs args = new CmdArgs().put("osmreader.osm", path + area + ".osm").
+                put("osmreader.graph-location", graphhopperLoc).
+                put("osmreader.levelgraph", "true").
+                put("osmreader.chShortcuts", "fastest");
         Graph graph;
         try {
-            graph = OSMReader.osm2Graph(args);
-            bind(Graph.class).toInstance(graph);
+            OSMReader reader = OSMReader.osm2Graph(args);
+            bind(Graph.class).toInstance(graph = reader.getGraph());
+            bind(AlgorithmPreparation.class).toInstance(reader.getPreparation());
         } catch (Exception ex) {
             throw new RuntimeException("cannot initialize graph", ex);
         }

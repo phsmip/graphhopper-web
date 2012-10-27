@@ -17,18 +17,15 @@ package com.graphhopper.http;
 
 import com.google.inject.Inject;
 import com.graphhopper.routing.AStar;
-import com.graphhopper.routing.AStarBidirection;
 import com.graphhopper.routing.Path;
-import com.graphhopper.routing.PathBidirRef;
-import com.graphhopper.routing.PathPrio;
-import com.graphhopper.routing.util.EdgePrioFilter;
+import com.graphhopper.routing.util.AlgorithmPreparation;
 import com.graphhopper.routing.util.FastestCalc;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
-import com.graphhopper.storage.PriorityGraph;
 import com.graphhopper.util.StopWatch;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
@@ -48,6 +45,8 @@ public class GraphHopperServlet extends HttpServlet {
     private Graph graph;
     @Inject
     private Location2IDIndex index;
+    @Inject
+    private AlgorithmPreparation prepare;
 
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res)
@@ -69,17 +68,30 @@ public class GraphHopperServlet extends HttpServlet {
             float idLookupTime = sw.stop().getSeconds();
 
             sw = new StopWatch().start();
-            Path p = calcPath(from, to);
-            int locs = p.locations();
-            List<Double[]> points = new ArrayList<Double[]>(locs);
-            for (int i = 0; i < locs; i++) {
-                int loc = p.location(i);
-                // geoJson is LON,LAT!
-                points.add(new Double[]{
-                            graph.getLongitude(loc),
-                            graph.getLatitude(loc)
-                        });
+//            Path p = calcPath(from, to);
+            Path p = calcPreparedGraphPath(from, to);
+            double dist = 0;
+            int locs = 0;
+            List<Double[]> points;
+            String infoStr;
+            if (p != null) {
+                infoStr = "path found";
+                dist = p.distance();
+                locs = p.nodes();
+                points = new ArrayList<Double[]>(locs);
+                for (int i = 0; i < locs; i++) {
+                    int loc = p.node(i);
+                    // geoJson is LON,LAT!
+                    points.add(new Double[]{
+                                graph.getLongitude(loc),
+                                graph.getLatitude(loc)
+                            });
+                }
+            } else {
+                infoStr = "NO path found";
+                points = Collections.EMPTY_LIST;
             }
+
             float routeLookupTime = sw.stop().getSeconds();
             JSONBuilder json = new JSONBuilder().
                     startObject("info").
@@ -88,14 +100,15 @@ public class GraphHopperServlet extends HttpServlet {
                     object("routeTime", routeLookupTime).
                     endObject().
                     startObject("route").
-                    object("distance", p.distance()).
+                    object("distance", dist).
                     startObject("data").
                     object("type", "LineString").
                     object("coordinates", points).
                     endObject().
                     endObject();
-            logger.info(fromLat + "," + fromLon + "->" + toLat + "," + toLon
-                    + ", distance: " + p.distance() + ", locations:" + p.locations()
+
+            logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
+                    + ", distance: " + dist + ", locations:" + locs
                     + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);
             writeResponse(res, json.build().toString(2));
         } catch (Exception ex) {
@@ -129,24 +142,12 @@ public class GraphHopperServlet extends HttpServlet {
     }
 
     private Path calcPath(int from, int to) {
+        // every request create a new independent algorithm instance (not thread safe!)
         AStar algo = new AStar(graph);
         return algo.setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
     }
 
-    private Path calcPathPrio(int from, int to) {
-        // Path p = new AStar(graph).setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
-
-        AStarBidirection algo = new AStarBidirection(graph) {
-            @Override public String toString() {
-                return "AStarBidirection|Shortcut|" + weightCalc;
-            }
-
-            @Override protected PathBidirRef createPath() {
-                // expand skipped nodes
-                return new PathPrio((PriorityGraph) graph, weightCalc);
-            }
-        }.setApproximation(true);
-        algo.setEdgeFilter(new EdgePrioFilter((PriorityGraph) graph));
-        return algo.setType(FastestCalc.DEFAULT).calcPath(from, to);
+    private Path calcPreparedGraphPath(int from, int to) {
+        return prepare.createAlgo().calcPath(from, to);
     }
 }
