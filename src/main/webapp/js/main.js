@@ -92,11 +92,15 @@ function route(start, end) {
         
         $("#info").empty();
         var distDiv = $("<div/>");
-        distDiv.html("distance in km " + json.route.distance); 
+        distDiv.html("distance: " + json.route.distance + "km, time: " + Math.round(json.route.time / 60) + "min"); 
         $("#info").append(distDiv);
         var googleLink = $("<a target='_blank'>Google</a>");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + start + "+to:" + end);
-        $("#info").append(googleLink); 
+        $("#info").append(googleLink);
+        var osrmLink = $("<br/><a target='_blank'>OSRM</a>");
+        osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + start + "&loc=" + end);
+        $("#info").append(osrmLink);
+        
     });
 }
 

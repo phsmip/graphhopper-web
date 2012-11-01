@@ -19,7 +19,7 @@ import com.google.inject.Inject;
 import com.graphhopper.routing.AStar;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.AlgorithmPreparation;
-import com.graphhopper.routing.util.FastestCalc;
+import com.graphhopper.routing.util.FastestCarCalc;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
 import com.graphhopper.util.StopWatch;
@@ -101,6 +101,7 @@ public class GraphHopperServlet extends HttpServlet {
                     infoStr = "NO path found";
 
                 double dist = p.distance();
+                long time = p.time();
                 int locs = p.nodes();
                 points = new ArrayList<Double[]>(locs);
                 for (int i = 0; i < locs; i++) {
@@ -123,6 +124,7 @@ public class GraphHopperServlet extends HttpServlet {
                         object("from", new Double[]{fromLon, fromLat}).
                         object("to", new Double[]{toLon, toLat}).
                         object("distance", dist).
+                        object("time", time).
                         startObject("data").
                         object("type", "LineString").
                         object("coordinates", points).
@@ -130,7 +132,7 @@ public class GraphHopperServlet extends HttpServlet {
                         endObject();
 
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
-                        + ", distance: " + dist + ", locations:" + locs
+                        + ", distance: " + dist + ", time:" + time / 60f + "min, locations:" + locs
                         + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);
                 writeResponse(res, json.build().toString(2));
             } catch (Exception ex) {
@@ -171,7 +173,7 @@ public class GraphHopperServlet extends HttpServlet {
     private Path calcPath(int from, int to) {
         // every request create a new independent algorithm instance (not thread safe!)
         AStar algo = new AStar(graph);
-        return algo.setApproximation(false).setType(FastestCalc.DEFAULT).calcPath(from, to);
+        return algo.setApproximation(false).setType(FastestCarCalc.DEFAULT).calcPath(from, to);
     }
 
     private Path calcPreparedGraphPath(int from, int to) {
