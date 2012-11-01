@@ -95,10 +95,10 @@ public class GraphHopperServlet extends HttpServlet {
                 Path p = calcPreparedGraphPath(from, to);
                 List<Double[]> points;
                 String infoStr;
-                if (p == Path.NOT_FOUND)
-                    infoStr = "NO path found";
-                else
+                if (p.found())
                     infoStr = "path found";
+                else
+                    infoStr = "NO path found";
 
                 double dist = p.distance();
                 int locs = p.nodes();
