@@ -2,6 +2,9 @@ var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
 var startPoint = null;
+var errCallback = function(err) {
+    alert("error:"+ err.statusText + ", " + err.responseText);
+};
 
 $(document).ready(function(e) {
     var History = window.History;
@@ -94,10 +97,10 @@ function route(start, end) {
         var distDiv = $("<div/>");
         distDiv.html("distance: " + json.route.distance + "km, time: " + Math.round(json.route.time / 60) + "min"); 
         $("#info").append(distDiv);
-        var googleLink = $("<a target='_blank'>Google</a>");
+        var googleLink = $("<a>Google</a>");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + start + "+to:" + end);
         $("#info").append(googleLink);
-        var osrmLink = $("<br/><a target='_blank'>OSRM</a>");
+        var osrmLink = $("<br/><a>OSRM</a>");
         osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + start + "&loc=" + end);
         $("#info").append(osrmLink);
         
@@ -111,7 +114,13 @@ function doRequest(from, to, callback) {
     var url = host + "/api" + demoUrl;
     History.pushState({}, browserTitle, demoUrl);
     console.log(url);
-    $.get(url, callback, "json");
+    $.ajax({
+        "url" : url, 
+        "success": callback,
+        "error" : errCallback,
+        "type" : "GET",
+        "dataType" : "json"
+    });
 }
 
 function requestCenter() {
@@ -134,9 +143,7 @@ function requestCenter() {
             center.lat = (minLat + maxLat) / 2;
             center.lng = (minLon + maxLon) / 2;
         },
-        "error" : function(err) {
-            alert("error:"+err);
-        },
+        "error" : errCallback,
         "type" : "GET",
         "dataType" : "json"
     });
