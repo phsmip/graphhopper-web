@@ -21,6 +21,7 @@ public class DefaultModule extends AbstractModule {
     @Override
     protected void configure() {
         String path = "/media/SAMSUNG/maps/";
+//        String area = "bayern";
         String area = "unterfranken";
 //        String area = "germany";
         String graphhopperLoc = path + area + "-gh";

@@ -1,5 +1,5 @@
 /*
- *  Copyright 2012 Peter Karich info@jetsli.de
+ *  Copyright 2012 Peter Karich
  * 
  *  Licensed under the Apache License, Version 2.0 (the "License");
  *  you may not use this file except in compliance with the License.
@@ -23,15 +23,16 @@ import com.graphhopper.routing.util.FastestCalc;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
 import com.graphhopper.util.StopWatch;
+import com.graphhopper.util.shapes.BBox;
 import java.io.IOException;
 import java.util.ArrayList;
-import java.util.Collections;
 import java.util.List;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import static javax.servlet.http.HttpServletResponse.*;
+import org.json.JSONException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -49,35 +50,58 @@ public class GraphHopperServlet extends HttpServlet {
     private AlgorithmPreparation prepare;
 
     @Override
-    public void doGet(HttpServletRequest req, HttpServletResponse res)
-            throws ServletException, IOException {
-
-        String fromParam = getParam(req, "from");
-        String[] fromStrs = fromParam.split(",");
-        double fromLat = Double.parseDouble(fromStrs[0]);
-        double fromLon = Double.parseDouble(fromStrs[1]);
-
-        String toParam = getParam(req, "to");
-        String[] toStrs = toParam.split(",");
-        double toLat = Double.parseDouble(toStrs[0]);
-        double toLon = Double.parseDouble(toStrs[1]);
+    public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         try {
-            StopWatch sw = new StopWatch().start();
-            int from = index.findID(fromLat, fromLon);
-            int to = index.findID(toLat, toLon);
-            float idLookupTime = sw.stop().getSeconds();
+            if ("/bounds".equals(req.getPathInfo()))
+                writeBounds(req, res);
+            else
+                writePath(req, res);
+        } catch (JSONException ex) {
+            logger.error("Error while returning bounds", ex);
+            writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
+        }
+    }
 
-            sw = new StopWatch().start();
+    void writeBounds(HttpServletRequest req, HttpServletResponse res) throws JSONException {
+        BBox bb = graph.getBounds();
+        List<Double> list = new ArrayList<Double>(4);
+        list.add(bb.minLon);
+        list.add(bb.minLat);
+        list.add(bb.maxLon);
+        list.add(bb.maxLat);
+        JSONBuilder json = new JSONBuilder().object("bbox", list);
+        writeResponse(res, json.build().toString(2));
+    }
+
+    void writePath(HttpServletRequest req, HttpServletResponse res) throws JSONException {
+        try {
+            String fromParam = getParam(req, "from");
+            String[] fromStrs = fromParam.split(",");
+            double fromLat = Double.parseDouble(fromStrs[0]);
+            double fromLon = Double.parseDouble(fromStrs[1]);
+
+            String toParam = getParam(req, "to");
+            String[] toStrs = toParam.split(",");
+            double toLat = Double.parseDouble(toStrs[0]);
+            double toLon = Double.parseDouble(toStrs[1]);
+            try {
+                StopWatch sw = new StopWatch().start();
+                int from = index.findID(fromLat, fromLon);
+                int to = index.findID(toLat, toLon);
+                float idLookupTime = sw.stop().getSeconds();
+
+                sw = new StopWatch().start();
 //            Path p = calcPath(from, to);
-            Path p = calcPreparedGraphPath(from, to);
-            double dist = 0;
-            int locs = 0;
-            List<Double[]> points;
-            String infoStr;
-            if (p != null) {
-                infoStr = "path found";
-                dist = p.distance();
-                locs = p.nodes();
+                Path p = calcPreparedGraphPath(from, to);
+                List<Double[]> points;
+                String infoStr;
+                if (p == Path.NOT_FOUND)
+                    infoStr = "NO path found";
+                else
+                    infoStr = "path found";
+
+                double dist = p.distance();
+                int locs = p.nodes();
                 points = new ArrayList<Double[]>(locs);
                 for (int i = 0; i < locs; i++) {
                     int loc = p.node(i);
@@ -87,33 +111,36 @@ public class GraphHopperServlet extends HttpServlet {
                                 graph.getLatitude(loc)
                             });
                 }
-            } else {
-                infoStr = "NO path found";
-                points = Collections.EMPTY_LIST;
+
+                float routeLookupTime = sw.stop().getSeconds();
+                JSONBuilder json = new JSONBuilder().
+                        startObject("info").
+                        object("time", idLookupTime + routeLookupTime).
+                        object("lookupTime", idLookupTime).
+                        object("routeTime", routeLookupTime).
+                        endObject().
+                        startObject("route").
+                        object("from", new Double[]{fromLon, fromLat}).
+                        object("to", new Double[]{toLon, toLat}).
+                        object("distance", dist).
+                        startObject("data").
+                        object("type", "LineString").
+                        object("coordinates", points).
+                        endObject().
+                        endObject();
+
+                logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
+                        + ", distance: " + dist + ", locations:" + locs
+                        + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);
+                writeResponse(res, json.build().toString(2));
+            } catch (Exception ex) {
+                logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
+                writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
             }
-
-            float routeLookupTime = sw.stop().getSeconds();
-            JSONBuilder json = new JSONBuilder().
-                    startObject("info").
-                    object("time", idLookupTime + routeLookupTime).
-                    object("lookupTime", idLookupTime).
-                    object("routeTime", routeLookupTime).
-                    endObject().
-                    startObject("route").
-                    object("distance", dist).
-                    startObject("data").
-                    object("type", "LineString").
-                    object("coordinates", points).
-                    endObject().
-                    endObject();
-
-            logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
-                    + ", distance: " + dist + ", locations:" + locs
-                    + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);
+        } catch (NumberFormatException ex) {
+            JSONBuilder json = new JSONBuilder().object("error",
+                    "Problem while parsing 'from' or 'to' parameter:" + ex.getMessage());
             writeResponse(res, json.build().toString(2));
-        } catch (Exception ex) {
-            logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
-            writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
         }
     }
 

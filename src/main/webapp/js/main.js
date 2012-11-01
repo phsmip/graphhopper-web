@@ -1,5 +1,23 @@
-function myinit() {
-    var paramMap = parseUrlAndRequest();
+var routingLayer;
+var map;
+var browserTitle = "GraphHopper Web Demo";
+var startPoint = null;
+
+$(document).ready(function(e) {
+    var History = window.History;
+    if (History.enabled) {
+        History.Adapter.bind(window, 'statechange', function(){
+            var state = History.getState();
+            console.log(state);            
+            initFromUrl(parseUrl(state.url));
+        });
+    }
+        
+    initMap(requestCenter());
+    initFromUrl(parseUrlWithHisto());
+});
+            
+function initFromUrl(paramMap) {    
     var from = {};      
     if(paramMap.from) {
         try {
@@ -13,41 +31,36 @@ function myinit() {
     if(!from.lat || !from.lng) {
         from.lat = 52.532932;
         from.lng = 13.4;
-    }
-    initMap(from);
+    }    
     if(paramMap.from && paramMap.to)
-        route(paramMap.from, paramMap.to);    
+        route(paramMap.from, paramMap.to);
+    else
+        console.log("cannot find/parse from or to parameter?");
 }
-
-var routingLayer;
-var map;
 
 function initMap(center) {
     console.log("init map at " + center.lat + "," + center.lng);
     map = L.map('map', {
         center: [center.lat, center.lng],
-        zoom: 11
+        zoom: 10
     });
     L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
         key: '43b079df806c4e03b102055c4e1a8ba8',
         styleId: 997
     }).addTo(map);
+    routingLayer = L.geoJson().addTo(map);
     // TODO limit area to underlying routing graph bounds!
     // max.setMaxBounds( <LatLngBounds> bounds ) 
     
-    var popup = L.popup();
-    var startPoint = null;    
+    var popup = L.popup();    
     function onMapClick(e) {        
         if(!startPoint) {
-            if(routingLayer)
-                routingLayer.clearLayers();
             popup.setLatLng(e.latlng).setContent("Start").openOn(map);
             startPoint = e.latlng;
         } else {
             popup.setLatLng(e.latlng).setContent("End").openOn(map);
             var endPoint = e.latlng;
             route(startPoint.lat + "," + startPoint.lng, endPoint.lat + "," + endPoint.lng);
-            startPoint = null;
         }
     }
 
@@ -55,6 +68,8 @@ function initMap(center) {
 }
 
 function route(start, end) {
+    startPoint = null;
+    routingLayer.clearLayers();
     doRequest(start, end, function (json) {
                 
         // json.route.data needs to be in geoJson format => where a points is LON,LAT!
@@ -73,45 +88,85 @@ function route(start, end) {
             // "style": myStyle,                
             "geometry": json.route.data
         };
-        routingLayer = L.geoJson().addTo(map);
         routingLayer.addData(geojsonFeature);
-                
-        $("#info").html("distance in km " + json.route.distance); 
+        
+        $("#info").empty();
+        var distDiv = $("<div/>");
+        distDiv.html("distance in km " + json.route.distance); 
+        $("#info").append(distDiv);
+        var googleLink = $("<a target='_blank'>Google</a>");
+        googleLink.attr("href", "http://maps.google.com/?q=from:" + start + "+to:" + end);
+        $("#info").append(googleLink); 
     });
 }
-function parseUrlAndRequest() {
-    var paramMap = function () {
-        var res = {};
-        var query = window.location.search.substring(1);
-        var vars = query.split("&");
-        for (var i=0;i < vars.length;i++) {
-            var pair = vars[i].split("=");
-            if(pair.length > 1 && pair[1] != null)
-                pair[1] = decodeURIComponent(pair[1].replace(/\+/g,' '));
-                        
-            if (typeof res[pair[0]] === "undefined")
-                res[pair[0]] = pair[1];
-            else if (typeof res[pair[0]] === "string") {
-                var arr = [ res[pair[0]], pair[1] ];
-                res[pair[0]] = arr;
-            } else
-                res[pair[0]].push(pair[1]);                   
-        } 
-        return res;
-    } ();    
-                             
-    return paramMap;
-}
-            
+
 function doRequest(from, to, callback) {
     // http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424
-    var host = location.protocol + "//" + location.host;
-    
-    // does not work in chrome
-    //    if(location.protocol == "file:")
-    //        host = "http://localhost";
-                
-    var url = host + "/api?from=" + from + "&to=" + to;
+    var host = location.protocol + "//" + location.host;    
+    var demoUrl = "?from=" + from + "&to=" + to;
+    var url = host + "/api" + demoUrl;
+    History.pushState({}, browserTitle, demoUrl);
     console.log(url);
     $.get(url, callback, "json");
+}
+
+function requestCenter() {
+    var host = location.protocol + "//" + location.host;    
+    var url = host + "/api/bounds";
+    console.log(url);
+    var center = {
+        lat : 0, 
+        lng : 0
+    };
+    $.ajax({
+        "url": url,
+        "async": false,
+        "success": function(json) {
+            var bounds = json.bbox;
+            var minLon = bounds[0];
+            var minLat = bounds[1];
+            var maxLon = bounds[2];
+            var maxLat = bounds[3];
+            center.lat = (minLat + maxLat) / 2;
+            center.lng = (minLon + maxLon) / 2;
+        },
+        "error" : function(err) {
+            alert("error:"+err);
+        },
+        "type" : "GET",
+        "dataType" : "json"
+    });
+    
+    return center;
+}
+
+function parseUrlWithHisto() {
+    if(window.location.hash) 
+        return parseUrl(window.location.hash);
+    
+    return parseUrl(window.location.search);
+}
+function parseUrlAndRequest() {
+    return parseUrl(window.location.search);
+}
+function parseUrl(query) {
+    var index = query.indexOf('?');
+    if(index >= 0)
+        query = query.substring(index + 1);
+    var res = {};        
+    var vars = query.split("&");
+    for (var i=0;i < vars.length;i++) {
+        var pair = vars[i].split("=");
+        if(pair.length > 1 && pair[1] != null)
+            pair[1] = decodeURIComponent(pair[1].replace(/\+/g,' '));
+                        
+        if (typeof res[pair[0]] === "undefined")
+            res[pair[0]] = pair[1];
+        else if (typeof res[pair[0]] === "string") {
+            var arr = [ res[pair[0]], pair[1] ];
+            res[pair[0]] = arr;
+        } else
+            res[pair[0]].push(pair[1]);                   
+    } 
+    return res;
 }
