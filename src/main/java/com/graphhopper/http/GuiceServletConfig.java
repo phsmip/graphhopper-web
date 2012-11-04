@@ -6,6 +6,9 @@ import com.google.inject.Module;
 import com.google.inject.Singleton;
 import com.google.inject.servlet.GuiceServletContextListener;
 import com.google.inject.servlet.ServletModule;
+import java.util.HashMap;
+import java.util.Map;
+import org.eclipse.jetty.servlets.GzipFilter;
 
 /**
  * Replacement of web.xml
@@ -16,8 +19,7 @@ import com.google.inject.servlet.ServletModule;
  */
 public class GuiceServletConfig extends GuiceServletContextListener {
 
-    @Override
-    protected Injector getInjector() {
+    @Override protected Injector getInjector() {
         return Guice.createInjector(createDefaultModule(), createServletModule());
     }
 
@@ -27,8 +29,19 @@ public class GuiceServletConfig extends GuiceServletContextListener {
 
     protected Module createServletModule() {
         return new ServletModule() {
-            @Override
-            protected void configureServlets() {
+            @Override protected void configureServlets() {                
+//                Map<String, String> params = new HashMap<String, String>();
+//                params.put("mimeTypes", "text/html,"
+//                        + "text/plain,"
+//                        + "text/xml,"
+//                        + "application/xhtml+xml,"
+//                        + "text/css,"
+//                        + "application/javascript,"
+//                        + "image/svg+xml");
+//
+//                filter("/*").through(GzipFilter.class, params);
+//                bind(GzipFilter.class).in(Singleton.class);
+                
                 serve("/api*").with(GraphHopperServlet.class);
                 bind(GraphHopperServlet.class).in(Singleton.class);
             }

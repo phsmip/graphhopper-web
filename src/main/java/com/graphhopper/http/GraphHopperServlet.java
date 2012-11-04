@@ -125,6 +125,7 @@ public class GraphHopperServlet extends HttpServlet {
                     }
 
                     // String points = DatatypeConverter.printBase64Binary(bOut.toByteArray());
+                    res.setContentType("arraybuffer");
                     res.setContentLength(stream.size());
                     res.setStatus(200);
                 } else {
@@ -153,13 +154,13 @@ public class GraphHopperServlet extends HttpServlet {
                             object("coordinates", points).
                             endObject().
                             endObject();
+                    res.setContentType("application/json");
                     if ("true".equals(getParam(req, "debug")))
                         writeResponse(res, json.build().toString(2));
                     else
                         writeResponse(res, json.build().toString());
                 }
 
-                // TODO use gzip filter!
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
                         + ", distance: " + dist + ", time:" + time + "min, locations:" + locs
                         + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);

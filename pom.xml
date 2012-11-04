@@ -25,7 +25,7 @@
             <groupId>org.json</groupId>
             <artifactId>json</artifactId>
             <version>20090211</version>            
-        </dependency>
+        </dependency>        
         <dependency>
             <groupId>com.google.inject</groupId>
             <artifactId>guice</artifactId>
@@ -68,6 +68,11 @@
             <artifactId>junit</artifactId>
             <version>4.8.1</version>
             <scope>test</scope>
+        </dependency>
+        <dependency>
+            <groupId>org.eclipse.jetty</groupId>
+            <artifactId>jetty-servlets</artifactId>
+            <version>${jetty.version}</version>
         </dependency>
     </dependencies>
 
