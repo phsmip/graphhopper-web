@@ -24,6 +24,10 @@ import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
+import java.io.BufferedInputStream;
+import java.io.BufferedOutputStream;
+import java.io.ByteArrayOutputStream;
+import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -93,7 +97,7 @@ public class GraphHopperServlet extends HttpServlet {
                 sw = new StopWatch().start();
 //            Path p = calcPath(from, to);
                 Path p = calcPreparedGraphPath(from, to);
-                List<Double[]> points;
+                float routeLookupTime = sw.stop().getSeconds();
                 String infoStr;
                 if (p.found())
                     infoStr = "path found";
@@ -101,40 +105,64 @@ public class GraphHopperServlet extends HttpServlet {
                     infoStr = "NO path found";
 
                 double dist = p.distance();
-                long time = p.time();
+                int time = Math.round(p.time() / 60f);
                 int locs = p.nodes();
-                points = new ArrayList<Double[]>(locs);
-                for (int i = 0; i < locs; i++) {
-                    int loc = p.node(i);
-                    // geoJson is LON,LAT!
-                    points.add(new Double[]{
-                                graph.getLongitude(loc),
-                                graph.getLatitude(loc)
-                            });
+
+                if ("bin".equals(getParam(req, "type"))) {
+                    DataOutputStream stream = new DataOutputStream(res.getOutputStream());
+                    // took
+                    stream.writeFloat(idLookupTime + routeLookupTime);                    
+                    // distance
+                    stream.writeFloat((float) dist);
+                    // time
+                    stream.writeInt(time);
+                    // locations
+                    stream.writeInt(locs);
+                    for (int i = 0; i < locs; i++) {
+                        int loc = p.node(i);
+                        stream.writeFloat((float) graph.getLatitude(loc));
+                        stream.writeFloat((float) graph.getLongitude(loc));
+                    }
+
+                    // String points = DatatypeConverter.printBase64Binary(bOut.toByteArray());
+                    res.setContentLength(stream.size());
+                    res.setStatus(200);
+                } else {
+                    ArrayList<Double[]> points = new ArrayList<Double[]>(locs);
+                    for (int i = 0; i < locs; i++) {
+                        int loc = p.node(i);
+                        // geoJson is LON,LAT!
+                        points.add(new Double[]{
+                                    graph.getLongitude(loc),
+                                    graph.getLatitude(loc)
+                                });
+                    }
+                    JSONBuilder json = new JSONBuilder().
+                            startObject("info").
+                            object("took", idLookupTime + routeLookupTime).
+                            object("lookupTime", idLookupTime).
+                            object("routeTime", routeLookupTime).
+                            endObject().
+                            startObject("route").
+                            object("from", new Double[]{fromLon, fromLat}).
+                            object("to", new Double[]{toLon, toLat}).
+                            object("distance", dist).
+                            object("time", time).
+                            startObject("data").
+                            object("type", "LineString").
+                            object("coordinates", points).
+                            endObject().
+                            endObject();
+                    if ("true".equals(getParam(req, "debug")))
+                        writeResponse(res, json.build().toString(2));
+                    else
+                        writeResponse(res, json.build().toString());
                 }
 
-                float routeLookupTime = sw.stop().getSeconds();
-                JSONBuilder json = new JSONBuilder().
-                        startObject("info").
-                        object("time", idLookupTime + routeLookupTime).
-                        object("lookupTime", idLookupTime).
-                        object("routeTime", routeLookupTime).
-                        endObject().
-                        startObject("route").
-                        object("from", new Double[]{fromLon, fromLat}).
-                        object("to", new Double[]{toLon, toLat}).
-                        object("distance", dist).
-                        object("time", time).
-                        startObject("data").
-                        object("type", "LineString").
-                        object("coordinates", points).
-                        endObject().
-                        endObject();
-
+                // TODO use gzip filter!
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
-                        + ", distance: " + dist + ", time:" + time / 60f + "min, locations:" + locs
+                        + ", distance: " + dist + ", time:" + time + "min, locations:" + locs
                         + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);
-                writeResponse(res, json.build().toString(2));
             } catch (Exception ex) {
                 logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
                 writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());

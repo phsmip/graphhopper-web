@@ -5,6 +5,7 @@ var startPoint = null;
 var errCallback = function(err) {
     alert("error:"+ err.statusText + ", " + err.responseText);
 };
+var jsonType = false;
 
 $(document).ready(function(e) {
     var History = window.History;
@@ -95,7 +96,9 @@ function route(start, end) {
         
         $("#info").empty();
         var distDiv = $("<div/>");
-        distDiv.html("distance: " + json.route.distance + "km, time: " + Math.round(json.route.time / 60) + "min"); 
+        distDiv.html("distance: " + Math.round(json.route.distance * 1000) / 1000
+            + "km, time: " + Math.round(json.route.time) 
+            + "min, took: " + Math.round(json.info.took * 1000) / 1000 + "s"); 
         $("#info").append(distDiv);
         var googleLink = $("<a>Google</a>");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + start + "+to:" + end);
@@ -111,16 +114,64 @@ function doRequest(from, to, callback) {
     // http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424
     var host = location.protocol + "//" + location.host;    
     var demoUrl = "?from=" + from + "&to=" + to;
-    var url = host + "/api" + demoUrl;
+    var url;
+    if(jsonType) {
+        url = host + "/api" + demoUrl + "&type=json"; // &debug=true
+        $.ajax({
+            "url" : url, 
+            "success": callback,
+            "error" : errCallback,
+            "type" : "GET",
+            "dataType" : "json"
+        });
+    } else {
+        // we need a very efficient way to get the probably huge number of points
+        url = host + "/api" + demoUrl + "&type=bin";             
+        var xhr = new XMLHttpRequest();
+        xhr.open('GET', url, true);
+        xhr.responseType = 'arraybuffer';
+        xhr.onload = function(e) {
+            if (this.status == 200) {
+                var dv = new DataView(this.response);
+                var json = {
+                    "info" : {
+                        "took" : 0
+                    },
+                    "route": {
+                        "time": 0, 
+                        "distance": 0, 
+                        "data" : {}
+                    }
+                };
+                
+                var i = 0;
+                json.info.took = dv.getFloat32(i);                
+                i += 4;
+                json.route.distance = dv.getFloat32(i);
+                i += 4;
+                json.route.time = dv.getInt32(i);
+                i += 4;
+                var locations = dv.getInt32(i);
+                var tmpArray = [];
+                json.route.data = {
+                    "type" : "LineString",
+                    "coordinates": tmpArray
+                };
+                for(var index = 0; index < locations; index ++) {
+                    i += 4;
+                    var lat = dv.getFloat32(i);
+                    i += 4;
+                    var lng = dv.getFloat32(i);
+                    tmpArray.push([lng, lat]);
+                }            
+                callback(json);
+            } else
+                errCallback(e);
+        };
+        xhr.send();
+    }
     History.pushState({}, browserTitle, demoUrl);
-    console.log(url);
-    $.ajax({
-        "url" : url, 
-        "success": callback,
-        "error" : errCallback,
-        "type" : "GET",
-        "dataType" : "json"
-    });
+    console.log(url);    
 }
 
 function requestCenter() {
