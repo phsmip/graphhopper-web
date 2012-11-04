@@ -30,17 +30,18 @@ public class GuiceServletConfig extends GuiceServletContextListener {
     protected Module createServletModule() {
         return new ServletModule() {
             @Override protected void configureServlets() {                
-//                Map<String, String> params = new HashMap<String, String>();
-//                params.put("mimeTypes", "text/html,"
-//                        + "text/plain,"
-//                        + "text/xml,"
-//                        + "application/xhtml+xml,"
-//                        + "text/css,"
-//                        + "application/javascript,"
-//                        + "image/svg+xml");
-//
-//                filter("/*").through(GzipFilter.class, params);
-//                bind(GzipFilter.class).in(Singleton.class);
+                Map<String, String> params = new HashMap<String, String>();
+                params.put("mimeTypes", "text/html,"
+                        + "text/plain,"
+                        + "text/xml,"
+                        + "application/xhtml+xml,"
+                        + "text/css,"
+                        + "application/json,"
+                        + "application/javascript,"
+                        + "image/svg+xml");
+
+                filter("/*").through(MyGZIPHook.class, params);
+                bind(MyGZIPHook.class).in(Singleton.class);
                 
                 serve("/api*").with(GraphHopperServlet.class);
                 bind(GraphHopperServlet.class).in(Singleton.class);
