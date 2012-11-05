@@ -10,8 +10,6 @@
         <![endif]-->
         <script src="http://cdn.leafletjs.com/leaflet-0.4.4/leaflet.js"></script>
         <script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>        
-        <!-- https://github.com/carlo/jquery-base64     -->
-        <script defer type="text/javascript" src="js/jquery.base64.min.js"></script>
         <script defer type="text/javascript" src="js/jquery.history.js"></script>
         <script type="text/javascript" src="js/main.js"></script>
         <style>
@@ -19,15 +17,39 @@
                 width: 800px;
                 height: 600px; 
             }
-
+            #input {
+                float: left;
+                width: 200px;
+                padding-left: 10px; 
+                padding-right: 10px; 
+            }
+            .defaulting {
+                color: gray;
+            }
+            #info {
+                padding-top: 20px;
+            }
+            /* ugly hack to hide button. as jquery requires us to include a submit button */
+            #hiddenButton {
+                position: absolute; 
+                left: -9999px;
+            }
         </style>
     </head>
     <body>
-        <h1>Your Map - please consult Readme.md before!</h1>
-        <h4>Click on map to define start and end of the route!</h4>               
-        <div id="map">
+        <h1>GraphHopper Web Demo</h1>
+        <div id="input">
+            <form id="locationform" action="javascript:return false;">
+                <input id="fromInput" class="defaulting" type="text" name="from"  value="From" defaultValue="From"/>
+                <div id="fromFound"></div>
+                <input id="toInput" class="defaulting" type="text" name="to" value="To" defaultValue="To"/>
+                <div id="toFound"></div>
+                <input id="hiddenButton" type="submit">
+            </form>
+            <div id="info">
+            </div>
         </div>
-        <div id="info">
+        <div id="map">
         </div>
     </body>
 </html>
