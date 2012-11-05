@@ -76,8 +76,8 @@ function toLatLng(str) {
         if(index < 0)
             return undefined;
         var from = {};
-        from.lat = Math.round(parseFloat(str.substr(0, index)) * 1e6) / 1e6;
-        from.lng = Math.round(parseFloat(str.substr(index + 1)) * 1e6) / 1e6;
+        from.lat = round(parseFloat(str.substr(0, index)));
+        from.lng = round(parseFloat(str.substr(index + 1)));
         return from;
     } catch(ex) {
         return undefined;
@@ -100,7 +100,7 @@ function setTo(tmp) {
 }
 function getInfoFromLocation(loc) {
     var info = {
-        name: "Nothing Found", 
+        name: "No area description found", 
         lat: 0, 
         lng: 0
     }
@@ -143,8 +143,8 @@ function getInfoFromLocation(loc) {
                 if(!json || json.length == 0)
                     return;
                 info.name = json[0].display_name;
-                info.lat = json[0].lat;
-                info.lng = json[0].lon;
+                info.lat = round(json[0].lat);
+                info.lng = round(json[0].lon);
             },
             "error" : errCallback,
             "type" : "GET",
@@ -152,6 +152,11 @@ function getInfoFromLocation(loc) {
         });
     }
     return info;
+}
+function round(val, precision) {
+    if(!precision)
+        precision = 1e6;
+    return Math.round(val * precision) / precision;
 }
 function routeLatLng(from, to) {
     routingLayer.clearLayers();
@@ -179,9 +184,9 @@ function routeLatLng(from, to) {
         
         $("#info").empty();
         var distDiv = $("<div/>");
-        distDiv.html("distance: " + Math.round(json.route.distance * 1000) / 1000 + "km<br/>"
-            +"time: " + Math.round(json.route.time) + "min<br/>"
-            +"took: " + Math.round(json.info.took * 1000) / 1000 + "s"); 
+        distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
+            +"time: " + json.route.time + "min<br/>"
+            +"took: " + round(json.info.took, 1000) + "s"); 
         $("#info").append(distDiv);
         var googleLink = $("<a>Google</a>");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + from + "+to:" + to);
