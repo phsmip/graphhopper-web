@@ -8,7 +8,6 @@ import com.google.inject.servlet.GuiceServletContextListener;
 import com.google.inject.servlet.ServletModule;
 import java.util.HashMap;
 import java.util.Map;
-import org.eclipse.jetty.servlets.GzipFilter;
 
 /**
  * Replacement of web.xml
@@ -44,7 +43,7 @@ public class GuiceServletConfig extends GuiceServletContextListener {
                 bind(MyGZIPHook.class).in(Singleton.class);
                 
                 serve("/api*").with(GraphHopperServlet.class);
-                bind(GraphHopperServlet.class).in(Singleton.class);
+                bind(GraphHopperServlet.class).in(Singleton.class);                
             }
         };
     }

@@ -50,7 +50,7 @@ public class GraphHopperServlet extends HttpServlet {
     private Location2IDIndex index;
     @Inject
     private AlgorithmPreparation prepare;
-
+    
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         try {
