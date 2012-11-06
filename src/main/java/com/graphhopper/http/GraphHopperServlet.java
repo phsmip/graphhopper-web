@@ -24,9 +24,6 @@ import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
-import java.io.BufferedInputStream;
-import java.io.BufferedOutputStream;
-import java.io.ByteArrayOutputStream;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -37,6 +34,7 @@ import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import static javax.servlet.http.HttpServletResponse.*;
 import org.json.JSONException;
+import org.json.JSONObject;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -74,7 +72,7 @@ public class GraphHopperServlet extends HttpServlet {
         list.add(bb.maxLon);
         list.add(bb.maxLat);
         JSONBuilder json = new JSONBuilder().object("bbox", list);
-        writeResponse(res, json.build().toString(2));
+        writeJson(req, res, json.build());
     }
 
     void writePath(HttpServletRequest req, HttpServletResponse res) throws JSONException {
@@ -107,11 +105,11 @@ public class GraphHopperServlet extends HttpServlet {
                 double dist = p.distance();
                 int time = Math.round(p.time() / 60f);
                 int locs = p.nodes();
-
-                if ("bin".equals(getParam(req, "type"))) {
+                String type = getParam(req, "type");
+                if ("bin".equals(type)) {
                     DataOutputStream stream = new DataOutputStream(res.getOutputStream());
                     // took
-                    stream.writeFloat(idLookupTime + routeLookupTime);                    
+                    stream.writeFloat(idLookupTime + routeLookupTime);
                     // distance
                     stream.writeFloat((float) dist);
                     // time
@@ -155,10 +153,7 @@ public class GraphHopperServlet extends HttpServlet {
                             endObject().
                             endObject();
                     res.setContentType("application/json");
-                    if ("true".equals(getParam(req, "debug")))
-                        writeResponse(res, json.build().toString(2));
-                    else
-                        writeResponse(res, json.build().toString());
+                    writeJson(req, res, json.build());
                 }
 
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
@@ -207,5 +202,21 @@ public class GraphHopperServlet extends HttpServlet {
 
     private Path calcPreparedGraphPath(int from, int to) {
         return prepare.createAlgo().calcPath(from, to);
+    }
+
+    private void writeJson(HttpServletRequest req, HttpServletResponse res, JSONObject json) throws JSONException {
+        String type = getParam(req, "type");
+        if ("jsonp".equals(type)) {
+            String callbackName = getParam(req, "callback");
+            if ("true".equals(getParam(req, "debug")))
+                writeResponse(res, callbackName + "(" + json.toString(2) + ")");
+            else
+                writeResponse(res, callbackName + "(" + json.toString() + ")");
+        } else {
+            if ("true".equals(getParam(req, "debug")))
+                writeResponse(res, json.toString(2));
+            else
+                writeResponse(res, json.toString());
+        }
     }
 }

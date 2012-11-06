@@ -1,3 +1,6 @@
+// fixing cross domain support e.g in Opera
+jQuery.support.cors = true;
+
 var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
@@ -22,15 +25,19 @@ $(document).ready(function(e) {
     //        });
     //    }
     initForm();
-    initMap(requestCenter());
-    initFromParams(parseUrlWithHisto());
+    requestCenter().done(function(){
+        initMap(currentCenter);
+        initFromParams(parseUrlWithHisto());
+    })
 });
             
 function initFromParams(paramMap) {    
-    var from = setFrom(paramMap.from);
-    var to = setTo(paramMap.to);
-    if(from && to)
-        routeLatLng(from, to);
+    if(paramMap.from && paramMap.to)
+        setFrom(paramMap.from).done(function(fromArgs) {
+            setTo(paramMap.to).done(function(toArgs) {    
+                routeLatLng(fromArgs[0], toArgs[0], true);
+            })
+        });
 }
 
 function initMap(center) {
@@ -55,7 +62,7 @@ function initMap(center) {
             popup.setLatLng(e.latlng).setContent("End").openOn(map);
             var endPoint = e.latlng;
             setTo(endPoint);
-            routeLatLng(toLatLng($("#fromInput").val()), endPoint);            
+            routeLatLng(toLatLng($("#fromInput").val()), endPoint);
         } else {
             popup.setLatLng(e.latlng).setContent("Start").openOn(map);            
             $("#fromInput").val(toStr(e.latlng));
@@ -63,11 +70,14 @@ function initMap(center) {
         }
     }
 
-    map.on('click', onMapClick);
+    map.on('click', onMapClick);       
 }
 
 function toStr(latlng) {
-    return latlng.lat + "," + latlng.lng;
+    if(latlng)
+        return latlng.lat + "," + latlng.lng;
+    else
+        return "";
 }
 
 function toLatLng(str) {    
@@ -84,84 +94,98 @@ function toLatLng(str) {
     }
 }
 
-function setFrom(tmp) {
-    tmp = getInfoFromLocation(tmp);
-    if(tmp) {        
-        $("#fromFound").html(tmp.name);
-    }
-    return tmp;
+function setFrom(locStr) {
+    return getInfoFromLocation(locStr).done(function(infoArgs) {
+        var loc = infoArgs[0];
+        $("#fromFound").html(loc.name);
+        return loc;
+    })   
 }
-function setTo(tmp) {
-    tmp = getInfoFromLocation(tmp);
-    if(tmp) {
-        $("#toFound").html(tmp.name);
-    }
-    return tmp;
+function setTo(locStr) {
+    return getInfoFromLocation(locStr).done(function(infoArgs) {
+        var loc = infoArgs[0];
+        $("#toFound").html(loc.name);
+        return loc;
+    })
 }
-function getInfoFromLocation(loc) {
+
+function getInfoFromLocation(locStr) {
     var info = {
         name: "No area description found", 
         lat: 0, 
         lng: 0
     }
-    var latLngLoc = toLatLng(loc);
+    
+    // nominatim does not support elegant jquery-jsonp-way so use jsonp dataType 
+    // but disable jquery's callback parameter and create own deferred object
+    
+    if(!locStr || locStr.length == 0) {
+        var infoDefer = $.Deferred();
+        infoDefer.resolve([info]); // TODO ? , textStatus, xhr
+        return infoDefer.promise();
+    }
+    
+    var latLngLoc = toLatLng(locStr);
     if(latLngLoc) {        
         info.lat = latLngLoc.lat;
         info.lng = latLngLoc.lng;
         var url = "http://nominatim.openstreetmap.org/reverse?lat=" + latLngLoc.lat + "&lon="
-        + latLngLoc.lng + "&format=json&zoom=16";
-        $.ajax({
+        + latLngLoc.lng + "&format=json&zoom=16&json_callback=reverse_callback";
+        return $.ajax({
             "url": url,
-            "async": false,
-            "success": function(json) {
-                if(!json || json.length == 0)
-                    return;
-                var address = json.address;
-                info.name = "";
-                if(address.road)
-                    info.name += address.road + " ";
-                if(address.city)
-                    info.name += address.city + " ";
-                if(address.country)
-                    info.name += address.country;
-            },
             "error" : errCallback,
             "type" : "GET",
-            "dataType" : "json"
+            "dataType": "jsonp",
+            "jsonpCallback": 'reverse_callback',
+            "jsonp": false            
+        }).pipe(function(jsonArgs) {
+            var json = jsonArgs[0];
+            if(!json || json.length == 0) {
+                info.name = "No coordinate found";                    
+                return [info];
+            }
+            var address = json.address;
+            info.name = "";
+            if(address.road)
+                info.name += address.road + " ";
+            if(address.city)
+                info.name += address.city + " ";
+            if(address.country)
+                info.name += address.country;
+            return [info];
         });        
     } else {    
-        var url = "http://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(loc);
+        var url = "http://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(locStr)
+        +"&json_callback=search_callback&limit=1";
         if(bounds) {
             // minLon, minLat, maxLon, maxLat => left, top, right, bottom
             url += "&bounded=1&viewbox=" + bounds[0] + ","+bounds[3] + ","+bounds[2] +","+ bounds[1];
         }
         
-        $.ajax({
-            "url": url,
-            "async": false,
-            "success": function(json) {
-                if(!json || json.length == 0)
-                    return;
-                info.name = json[0].display_name;
-                info.lat = round(json[0].lat);
-                info.lng = round(json[0].lon);
-            },
-            "error" : errCallback,
+        return $.ajax({
+            "url": url,            
             "type" : "GET",
-            "dataType" : "json"
+            "dataType": "jsonp",
+            "jsonpCallback": 'search_callback',
+            "jsonp": false            
+        }).pipe(function(jsonArgs) {
+            var json = jsonArgs[0];
+            if(!json) {
+                info.name = "No area found for location";
+                return [info];
+            }        
+            info.name = json.display_name;
+            info.lat = round(json.lat);
+            info.lng = round(json.lon);
+            return [info];
         });
     }
-    return info;
 }
-function round(val, precision) {
-    if(!precision)
-        precision = 1e6;
-    return Math.round(val * precision) / precision;
-}
-function routeLatLng(from, to) {
+
+function routeLatLng(fromPoint, toPoint, doPan) {
     routingLayer.clearLayers();
-    from = toStr(from);
-    to = toStr(to);
+    from = toStr(fromPoint);
+    to = toStr(toPoint);
     doRequest(from, to, function (json) {
                 
         // json.route.data needs to be in geoJson format => where a points is LON,LAT!
@@ -182,6 +206,14 @@ function routeLatLng(from, to) {
         };
         routingLayer.addData(geojsonFeature);
         
+        var coords = json.route.data.coordinates;
+        if(doPan && coords && coords.length > 0) {
+            var point = coords[0];
+            map.panTo({
+                "lng" : point[0], 
+                "lat" : point[1]
+                });                
+        }
         $("#info").empty();
         var distDiv = $("<div/>");
         distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
@@ -205,17 +237,18 @@ function routeLatLng(from, to) {
 
 function doRequest(from, to, callback) {
     // http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424
-    var host = location.protocol + "//" + location.host;    
+    // var host = "http://217.92.216.224:8080";    
+    var host = "http://localhost:8989";
     var demoUrl = "?from=" + from + "&to=" + to;
     var url;
     if(jsonType) {
-        url = host + "/api" + demoUrl + "&type=json"; // &debug=true
+        url = host + "/api" + demoUrl; // &debug=true
         $.ajax({
-            "url" : url, 
+            "url" : url,
             "success": callback,
             "error" : errCallback,
             "type" : "GET",
-            "dataType" : "json"
+            "dataType": "jsonp"
         });
     } else {
         // we need a very efficient way to get the probably huge number of points
@@ -269,11 +302,10 @@ function doRequest(from, to, callback) {
 
 function requestCenter() {
     var host = location.protocol + "//" + location.host;    
-    var url = host + "/api/bounds";
+    var url = host + "/api/bounds?type=jsonp";
     console.log(url);    
-    $.ajax({
+    return $.ajax({
         "url": url,
-        "async": false,
         "success": function(json) {
             bounds = json.bbox;
             var minLon = bounds[0];
@@ -281,14 +313,12 @@ function requestCenter() {
             var maxLon = bounds[2];
             var maxLat = bounds[3];
             currentCenter.lat = (minLat + maxLat) / 2;
-            currentCenter.lng = (minLon + maxLon) / 2;
+            currentCenter.lng = (minLon + maxLon) / 2;            
         },
         "error" : errCallback,
         "type" : "GET",
-        "dataType" : "json"
+        "dataType": 'jsonp'
     });
-    
-    return currentCenter;
 }
 
 function parseUrlWithHisto() {
@@ -330,18 +360,24 @@ function initForm() {
     // if FROM will be submitted
     $('#fromInput').keypress(function(e) {
         if(e.which == 10 || e.which == 13) {
-            var from = setFrom($("#fromInput").val());
-            var to = toLatLng($("#toInput").val());
-            routeLatLng(from, to);
+            // at least resolve from parameter! => first position
+            setFrom($("#fromInput").val()).pipe(function(fromArgs) {
+                setTo($("#toInput").val()).pipe(function(toArgs) {                
+                    routeLatLng(fromArgs[0], toArgs[0], true);
+                });       
+            });
         }
     });
     
     // if TO will be submitted
     $('#toInput').keypress(function(e) {
         if(e.which == 10 || e.which == 13) {
-            var from = toLatLng($("#fromInput").val());
-            var to = setTo($("#toInput").val());
-            routeLatLng(from, to);
+            // at least resolve to parameter! => first position
+            setTo($("#toInput").val()).pipe(function(toArgs) {
+                setFrom($("#fromInput").val()).pipe(function(fromArgs) {
+                    routeLatLng(fromArgs[0], toArgs[0], true);
+                });       
+            });
         }
     });
 
@@ -363,4 +399,10 @@ function initForm() {
             }
         });
     });
+}
+
+function round(val, precision) {
+    if(!precision)
+        precision = 1e6;
+    return Math.round(val * precision) / precision;
 }
