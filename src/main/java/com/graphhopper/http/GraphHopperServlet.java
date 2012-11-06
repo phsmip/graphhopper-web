@@ -50,7 +50,13 @@ public class GraphHopperServlet extends HttpServlet {
     private Location2IDIndex index;
     @Inject
     private AlgorithmPreparation prepare;
-    
+
+    @Override
+    protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
+
+        super.service(req, resp);
+    }
+
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         try {
@@ -107,6 +113,8 @@ public class GraphHopperServlet extends HttpServlet {
                 int locs = p.nodes();
                 String type = getParam(req, "type");
                 if ("bin".equals(type)) {
+                    // for type=bin we cannot do jsonp so do:
+                    res.setHeader("Access-Control-Allow-Origin", "*");
                     DataOutputStream stream = new DataOutputStream(res.getOutputStream());
                     // took
                     stream.writeFloat(idLookupTime + routeLookupTime);

@@ -248,9 +248,12 @@ function routeLatLng(fromPoint, toPoint, doPan) {
 }
 
 function doRequest(from, to, callback) {
-    // http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424
-    // var host = "http://217.92.216.224:8080";    
-    var host = "http://localhost:8989";
+    // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424
+    // trying out cross origin:
+    var host = "http://217.92.216.224:8080";
+    
+    // local development
+    // var host = "http://localhost:8989";
     var demoUrl = "?from=" + from + "&to=" + to;
     var url;
     if(jsonType) {
