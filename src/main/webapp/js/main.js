@@ -7,6 +7,8 @@ var browserTitle = "GraphHopper Web Demo";
 var errCallback = function(err) {
     alert("error:"+ err.statusText + ", " + err.responseText);
 };
+var fromCoord = {};
+var toCoord = {};
 var jsonType = false;
 var bounds;
 var currentCenter = {
@@ -27,17 +29,19 @@ $(document).ready(function(e) {
     initForm();
     requestCenter().done(function(){
         initMap(currentCenter);
-        initFromParams(parseUrlWithHisto());
+        var params = parseUrlWithHisto()
+        fromCoord = toLatLng(params.from);
+        toCoord = toLatLng(params.to);
+        resolveCoords();
     })
 });
             
-function initFromParams(paramMap) {    
-    if(paramMap.from && paramMap.to)
-        setFrom(paramMap.from).done(function(fromArgs) {
-            setTo(paramMap.to).done(function(toArgs) {    
-                routeLatLng(fromArgs[0], toArgs[0], true);
-            })
-        });
+function resolveCoords(from, to) {    
+    setFrom(from).done(function(fromArgs) {        
+        setTo(to).done(function(toArgs) {    
+            routeLatLng(fromArgs[0], toArgs[0], true);
+        })
+    });    
 }
 
 function initMap(center) {
@@ -61,12 +65,20 @@ function initMap(center) {
         if(routeNow) {            
             popup.setLatLng(e.latlng).setContent("End").openOn(map);
             var endPoint = e.latlng;
-            setTo(endPoint);
-            routeLatLng(toLatLng($("#fromInput").val()), endPoint);
+            toCoord.lat = round(endPoint.lat);
+            toCoord.lng = round(endPoint.lng);
+            toCoord.input = toStr(toCoord);            
+            toCoord.resolved = false;
+            setTo().done(function() {
+                routeLatLng(fromCoord, toCoord);
+            });            
         } else {
             popup.setLatLng(e.latlng).setContent("Start").openOn(map);            
-            $("#fromInput").val(toStr(e.latlng));
-            setFrom(e.latlng);
+            fromCoord.lat = round(e.latlng.lat);
+            fromCoord.lng = round(e.latlng.lng);
+            fromCoord.input = toStr(fromCoord);            
+            fromCoord.resolved = false;
+            setFrom();
         }
     }
 
@@ -81,111 +93,114 @@ function toStr(latlng) {
 }
 
 function toLatLng(str) {    
+    var latLng = {
+        "name" : str, 
+        "input" : str, 
+        "resolved" : false
+    };
     try {
-        var index = str.indexOf(",");
-        if(index < 0)
-            return undefined;
-        var from = {};
-        from.lat = round(parseFloat(str.substr(0, index)));
-        from.lng = round(parseFloat(str.substr(index + 1)));
-        return from;
-    } catch(ex) {
-        return undefined;
+        var index = str.indexOf(",");        
+        if(index >= 0) {              
+            latLng.lat = round(parseFloat(str.substr(0, index)));
+            latLng.lng = round(parseFloat(str.substr(index + 1)));
+        }
+    } catch(ex) {        
     }
+    return latLng;
 }
 
-function setFrom(locStr) {
-    return getInfoFromLocation(locStr).done(function(infoArgs) {
-        var loc = infoArgs[0];
-        $("#fromFound").html(loc.name);
-        return loc;
+function setFrom(coordStr) {
+    if(coordStr)    
+        fromCoord = toLatLng(coordStr);    
+    
+    return getInfoFromLocation(fromCoord).done(function() {
+        fromCoord.resolved = true;
+        $("#fromInput").val(fromCoord.input);
+        $("#fromFound").html(fromCoord.name);
+        return fromCoord;
     })   
 }
-function setTo(locStr) {
-    return getInfoFromLocation(locStr).done(function(infoArgs) {
-        var loc = infoArgs[0];
-        $("#toFound").html(loc.name);
-        return loc;
+function setTo(coordStr) {
+    if(coordStr)
+        toCoord = toLatLng(coordStr);
+    
+    return getInfoFromLocation(toCoord).done(function() {
+        toCoord.resolved = true;                
+        $("#toInput").val(toCoord.input);
+        $("#toFound").html(toCoord.name);
+        return toCoord;
     })
 }
 
-function getInfoFromLocation(locStr) {
-    var info = {
-        name: "No area description found", 
-        lat: 0, 
-        lng: 0
+function getInfoFromLocation(locCoord) {
+    if(locCoord.resolved) {
+        var tmpDefer = $.Deferred();
+        tmpDefer.resolve([locCoord]);
+        return tmpDefer;   
     }
-    
-    // nominatim does not support elegant jquery-jsonp-way so use jsonp dataType 
-    // but disable jquery's callback parameter and create own deferred object
-    
-    if(!locStr || locStr.length == 0) {
-        var infoDefer = $.Deferred();
-        infoDefer.resolve([info]); // TODO ? , textStatus, xhr
-        return infoDefer.promise();
-    }
-    
-    var latLngLoc = toLatLng(locStr);
-    if(latLngLoc) {        
-        info.lat = latLngLoc.lat;
-        info.lng = latLngLoc.lng;
-        var url = "http://nominatim.openstreetmap.org/reverse?lat=" + latLngLoc.lat + "&lon="
-        + latLngLoc.lng + "&format=json&zoom=16&json_callback=reverse_callback";
+        
+    if(locCoord.lat && locCoord.lng) {
+        // in every case overwrite name
+        locCoord.name = "Error while looking up coordinate";
+        var url = "http://nominatim.openstreetmap.org/reverse?lat=" + locCoord.lat + "&lon="
+        + locCoord.lng + "&format=json&zoom=16&json_callback=reverse_callback";
         return $.ajax({
             "url": url,
             "error" : errCallback,
             "type" : "GET",
             "dataType": "jsonp",
-            "jsonpCallback": 'reverse_callback',
-            "jsonp": false            
+            "jsonpCallback": 'reverse_callback'
         }).pipe(function(jsonArgs) {
             var json = jsonArgs[0];
             if(!json || json.length == 0) {
-                info.name = "No coordinate found";                    
-                return [info];
+                locCoord.name = "No description found for coordinate";
+                return [locCoord];
             }
             var address = json.address;
-            info.name = "";
+            locCoord.name = "";
             if(address.road)
-                info.name += address.road + " ";
+                locCoord.name += address.road + " ";
             if(address.city)
-                info.name += address.city + " ";
+                locCoord.name += address.city + " ";
             if(address.country)
-                info.name += address.country;
-            return [info];
+                locCoord.name += address.country;            
+            locCoord.resolved = true;
+            return [locCoord];
         });        
-    } else {    
-        var url = "http://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(locStr)
+    } else {
+        var url = "http://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(locCoord.input)
         +"&json_callback=search_callback&limit=1";
         if(bounds) {
             // minLon, minLat, maxLon, maxLat => left, top, right, bottom
             url += "&bounded=1&viewbox=" + bounds[0] + ","+bounds[3] + ","+bounds[2] +","+ bounds[1];
         }
-        
+        locCoord.name = "Error while looking up area description";
         return $.ajax({
             "url": url,            
             "type" : "GET",
             "dataType": "jsonp",
-            "jsonpCallback": 'search_callback',
-            "jsonp": false            
+            "jsonpCallback": 'search_callback'
         }).pipe(function(jsonArgs) {
             var json = jsonArgs[0];
             if(!json) {
-                info.name = "No area found for location";
-                return [info];
+                locCoord.name = "No area description found";                
+                return [locCoord];
             }        
-            info.name = json.display_name;
-            info.lat = round(json.lat);
-            info.lng = round(json.lon);
-            return [info];
+            locCoord.name = json.display_name;
+            locCoord.lat = round(json.lat);
+            locCoord.lng = round(json.lon);
+            locCoord.resolved = true;
+            return [locCoord];
         });
     }
 }
 
 function routeLatLng(fromPoint, toPoint, doPan) {
     routingLayer.clearLayers();
-    from = toStr(fromPoint);
-    to = toStr(toPoint);
+    var from = toStr(fromPoint);
+    var to = toStr(toPoint);
+    // do not overwrite input text!
+    History.pushState({}, browserTitle, "?from=" + fromPoint.input + "&to=" + toPoint.input);
     doRequest(from, to, function (json) {
                 
         // json.route.data needs to be in geoJson format => where a points is LON,LAT!
@@ -212,7 +227,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
             map.panTo({
                 "lng" : point[0], 
                 "lat" : point[1]
-                });                
+            });                
         }
         $("#info").empty();
         var distDiv = $("<div/>");
@@ -225,10 +240,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
         $("#info").append(googleLink);
         var osrmLink = $("<br/><a>OSRM</a>");
         osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
-        $("#info").append(osrmLink);
-        
-        $("#fromInput").val(from);
-        $("#toInput").val(to);
+        $("#info").append(osrmLink);        
         $('.defaulting').each(function(index, element) {
             $(element).css("color", "black");
         });
@@ -296,7 +308,7 @@ function doRequest(from, to, callback) {
         };
         xhr.send();
     }
-    History.pushState({}, browserTitle, demoUrl);
+    
     console.log(url);    
 }
 
@@ -360,24 +372,20 @@ function initForm() {
     // if FROM will be submitted
     $('#fromInput').keypress(function(e) {
         if(e.which == 10 || e.which == 13) {
-            // at least resolve from parameter! => first position
-            setFrom($("#fromInput").val()).pipe(function(fromArgs) {
-                setTo($("#toInput").val()).pipe(function(toArgs) {                
-                    routeLatLng(fromArgs[0], toArgs[0], true);
-                });       
-            });
+            var to = $("#toInput").val();
+            // do not resolve
+            if(toCoord.input == to) to = null;
+            resolveCoords($("#fromInput").val(), to);
         }
     });
     
     // if TO will be submitted
     $('#toInput').keypress(function(e) {
         if(e.which == 10 || e.which == 13) {
-            // at least resolve to parameter! => first position
-            setTo($("#toInput").val()).pipe(function(toArgs) {
-                setFrom($("#fromInput").val()).pipe(function(fromArgs) {
-                    routeLatLng(fromArgs[0], toArgs[0], true);
-                });       
-            });
+            var from = $("#fromInput").val();
+            // do not resolve
+            if(toCoord.input == from) from = null;
+            resolveCoords(from, $("#toInput").val());
         }
     });
 
