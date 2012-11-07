@@ -52,12 +52,6 @@ public class GraphHopperServlet extends HttpServlet {
     private AlgorithmPreparation prepare;
 
     @Override
-    protected void service(HttpServletRequest req, HttpServletResponse resp) throws ServletException, IOException {
-
-        super.service(req, resp);
-    }
-
-    @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
         try {
             if ("/bounds".equals(req.getPathInfo()))

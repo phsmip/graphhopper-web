@@ -7,9 +7,14 @@ var browserTitle = "GraphHopper Web Demo";
 var errCallback = function(err) {
     alert("error:"+ err.statusText + ", " + err.responseText);
 };
-var fromCoord = {};
-var toCoord = {};
+var fromCoord = { input: "", name: ""};
+var toCoord = { input: "", name: ""};
 var bounds;
+// cross origin:
+var host = "http://217.92.216.224:8080";
+    
+// local development
+// var host = "http://localhost:8989";
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
@@ -25,9 +30,11 @@ $(document).ready(function(e) {
     requestCenter().done(function(){
         initMap();
         var params = parseUrlWithHisto()
-        fromCoord = toLatLng(params.from);
-        toCoord = toLatLng(params.to);
-        resolveCoords();
+        if(params.from && params.to) {
+            fromCoord = toLatLng(params.from);
+            toCoord = toLatLng(params.to);
+            resolveCoords();
+        }
     })
 });
             
@@ -255,12 +262,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
 }
 
 function doRequest(from, to, callback) {
-    // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424
-    // cross origin:
-    var host = "http://217.92.216.224:8080";
-    
-    // local development
-    // var host = "http://localhost:8989";
+    // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424    
     var demoUrl = "?from=" + from + "&to=" + to;
     var url;
     var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string';
@@ -334,7 +336,6 @@ function doRequest(from, to, callback) {
 }
 
 function requestCenter() {
-    var host = location.protocol + "//" + location.host;    
     var url = host + "/api/bounds?type=jsonp";
     console.log(url);    
     return $.ajax({
