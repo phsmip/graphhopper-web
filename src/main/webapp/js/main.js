@@ -15,7 +15,7 @@ var toCoord = {
     input: "", 
     name: ""
 };
-var bounds;
+var bounds = {};
 // cross origin:
 var host = "http://217.92.216.224:8080";
     
@@ -33,7 +33,7 @@ $(document).ready(function(e) {
     //        });
     //    }
     initForm();
-    requestCenter().done(function(){
+    requestBounds().done(function(){
         initMap();
         var params = parseUrlWithHisto()
         if(params.from && params.to) {
@@ -53,12 +53,10 @@ function resolveCoords(from, to) {
 }
 
 function initMap() {
-    var center = getCenter(bounds);
-    console.log("init map at " + toStr(center));
-    map = L.map('map', {
-        center: [center.lat, center.lng],
-        zoom: 10        
-    });
+    // var center = getCenter(bounds);
+    console.log("init map at " + bounds);
+    map = L.map('map');
+    map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
     // cloudmade provider:
     //    L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
@@ -78,8 +76,28 @@ function initMap() {
     }).addTo(map);
 
     routingLayer = L.geoJson().addTo(map);
-    // TODO limit area to underlying routing graph bounds!
-    // map.setMaxBounds( <LatLngBounds> bounds ) 
+    
+    var myStyle = {
+        "color": 'orange',
+        "weight": 3,
+        "opacity": 0.3
+    };
+     var geoJson = {
+        "type": "Feature",        
+        "geometry": {            
+            "type": "LineString",
+            "coordinates":[[bounds.minLon, bounds.minLat], [bounds.maxLon, bounds.minLat], 
+            [bounds.maxLon, bounds.maxLat], [bounds.minLon, bounds.maxLat],
+            [bounds.minLon, bounds.minLat]]
+        }
+    };
+    var boundsLayer = L.geoJson(geoJson, {"style": myStyle}).addTo(map);        
+    // boundsLayer.addData(geojsonFeature);  
+    
+    // limit area to underlying routing graph bounds!
+    // not user friendly as zoom level cannot be increased like one wants
+    //    map.setMaxBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), 
+    //        new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
     var popup = L.popup();    
     var routeNow = true;
@@ -192,9 +210,9 @@ function getInfoFromLocation(locCoord) {
     } else {
         var url = "http://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(locCoord.input)
         +"&json_callback=search_callback&limit=1";
-        if(bounds) {
+        if(bounds.initialized) {
             // minLon, minLat, maxLon, maxLat => left, top, right, bottom
-            url += "&bounded=1&viewbox=" + bounds[0] + ","+bounds[3] + ","+bounds[2] +","+ bounds[1];
+            url += "&bounded=1&viewbox=" + bounds.minLon + ","+bounds.maxLat + ","+bounds.maxLon +","+ bounds.minLat;
         }
         locCoord.name = "Error while looking up area description";
         return $.ajax({
@@ -226,7 +244,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
     var from = toStr(fromPoint);
     var to = toStr(toPoint);
     if(from.indexOf('undefined') >= 0 || to.indexOf('undefined') >= 0) {
-        distDiv.html('<small>routing not possible. location(s) not found in area<br/> ' + bounds + "</small>");
+        distDiv.html('<small>routing not possible. location(s) not found in area (marked with orange border)</small>');
         return;
     }
     // do not overwrite input text!
@@ -245,11 +263,13 @@ function routeLatLng(fromPoint, toPoint, doPan) {
         routingLayer.addData(geojsonFeature);        
         var coords = json.route.data.coordinates;
         if(doPan && coords && coords.length > 0) {
-            var point = coords[0];
-            map.panTo({
-                "lng" : point[0], 
-                "lat" : point[1]
-            });                
+            var start = coords[0];
+            var end = coords[coords.length - 1];
+            var minLat = Math.min(start[1], end[1]);
+            var minLon = Math.min(start[0], end[0]);
+            var maxLat = Math.max(start[1], end[1]);
+            var maxLon = Math.max(start[0], end[0]);            
+            map.fitBounds(new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon)));
         }
                 
         distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
@@ -342,13 +362,18 @@ function doRequest(from, to, callback) {
     console.log(url);    
 }
 
-function requestCenter() {
+function requestBounds() {
     var url = host + "/api/bounds?type=jsonp";
     console.log(url);    
     return $.ajax({
         "url": url,
         "success": function(json) {
-            bounds = json.bbox;                      
+            var tmp = json.bbox;  
+            bounds.initialized = true;
+            bounds.minLon = tmp[0];
+            bounds.minLat = tmp[1];
+            bounds.maxLon = tmp[2];
+            bounds.maxLat = tmp[3];
         },
         "error" : function(e) {
             $('#warn').html('GraphHopper API offline?');
@@ -364,13 +389,9 @@ function getCenter(bounds) {
         lat : 0, 
         lng : 0
     };
-    if(bounds) {
-        var minLon = bounds[0];
-        var minLat = bounds[1];
-        var maxLon = bounds[2];
-        var maxLat = bounds[3];
-        center.lat = (minLat + maxLat) / 2;
-        center.lng = (minLon + maxLon) / 2;  
+    if(bounds.initialized) {
+        center.lat = (bounds.minLat + bounds.maxLat) / 2;
+        center.lng = (bounds.minLon + bounds.maxLon) / 2;  
     }
     return center;
 }
