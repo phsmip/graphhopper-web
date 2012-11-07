@@ -116,6 +116,8 @@ public class GraphHopperServlet extends HttpServlet {
                     // for type=bin we cannot do jsonp so do:
                     res.setHeader("Access-Control-Allow-Origin", "*");
                     DataOutputStream stream = new DataOutputStream(res.getOutputStream());
+                    // write magix number
+                    stream.writeInt(123456);
                     // took
                     stream.writeFloat(idLookupTime + routeLookupTime);
                     // distance

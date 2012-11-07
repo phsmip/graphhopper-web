@@ -9,12 +9,7 @@ var errCallback = function(err) {
 };
 var fromCoord = {};
 var toCoord = {};
-var jsonType = false;
 var bounds;
-var currentCenter = {
-    lat : 0, 
-    lng : 0
-};
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
@@ -28,7 +23,7 @@ $(document).ready(function(e) {
     //    }
     initForm();
     requestCenter().done(function(){
-        initMap(currentCenter);
+        initMap();
         var params = parseUrlWithHisto()
         fromCoord = toLatLng(params.from);
         toCoord = toLatLng(params.to);
@@ -44,16 +39,29 @@ function resolveCoords(from, to) {
     });    
 }
 
-function initMap(center) {
+function initMap() {
+    var center = getCenter(bounds);
     console.log("init map at " + toStr(center));
     map = L.map('map', {
         center: [center.lat, center.lng],
-        zoom: 10
+        zoom: 10        
     });
-    L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
-        key: '43b079df806c4e03b102055c4e1a8ba8',
-        styleId: 997
+    
+    // cloudmade provider:
+    //    L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
+    //        key: '43b079df806c4e03b102055c4e1a8ba8',
+    //        styleId: 997
+    //    }).addTo(map);
+
+    // mapquest provider:
+    var mapquestUrl = 'http://{s}.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png',
+    subDomains = ['otile1','otile2','otile3','otile4'],
+    mapquestAttrib = 'Data, imagery and map information provided by <a href="http://open.mapquest.co.uk" target="_blank">MapQuest</a>,<a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> and contributors.';
+    L.tileLayer(mapquestUrl, {
+        attribution: mapquestAttrib, 
+        subdomains: subDomains
     }).addTo(map);
+
     routingLayer = L.geoJson().addTo(map);
     // TODO limit area to underlying routing graph bounds!
     // map.setMaxBounds( <LatLngBounds> bounds ) 
@@ -197,30 +205,30 @@ function getInfoFromLocation(locCoord) {
 
 function routeLatLng(fromPoint, toPoint, doPan) {
     routingLayer.clearLayers();
+    $("#info").empty();
+    var distDiv = $("<div/>");
+    $("#info").append(distDiv);
+    
     var from = toStr(fromPoint);
     var to = toStr(toPoint);
+    if(from.indexOf('undefined') >= 0 || to.indexOf('undefined') >= 0) {
+        distDiv.html('routing not possible. location(s) not found in area ' + bounds);
+        return;
+    }
     // do not overwrite input text!
     History.pushState({}, browserTitle, "?from=" + fromPoint.input + "&to=" + toPoint.input);
-    doRequest(from, to, function (json) {
-                
-        // json.route.data needs to be in geoJson format => where a points is LON,LAT!
-        // http://leaflet.cloudmade.com/examples/geojson.html
-        // some more code for geoJson
-        // https://github.com/CloudMade/Leaflet/issues/327
-        // https://github.com/CloudMade/Leaflet/issues/822
-        var myStyle = {
-            "color": 'blue',
-            "weight": 5,
-            "opacity": 0.55
-        };
-
+    doRequest(from, to, function (json) {        
+        if(json.info.routeNotFound) {
+            distDiv.html('route not found');            
+            return;
+        }
+        
         var geojsonFeature = {
             "type": "Feature",                   
             // "style": myStyle,                
             "geometry": json.route.data
         };
-        routingLayer.addData(geojsonFeature);
-        
+        routingLayer.addData(geojsonFeature);        
         var coords = json.route.data.coordinates;
         if(doPan && coords && coords.length > 0) {
             var point = coords[0];
@@ -229,8 +237,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
                 "lat" : point[1]
             });                
         }
-        $("#info").empty();
-        var distDiv = $("<div/>");
+                
         distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
             +"time: " + json.route.time + "min<br/>"
             +"took: " + round(json.info.took, 1000) + "s"); 
@@ -249,23 +256,16 @@ function routeLatLng(fromPoint, toPoint, doPan) {
 
 function doRequest(from, to, callback) {
     // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424
-    // trying out cross origin:
+    // cross origin:
     var host = "http://217.92.216.224:8080";
     
     // local development
     // var host = "http://localhost:8989";
     var demoUrl = "?from=" + from + "&to=" + to;
     var url;
-    if(jsonType) {
-        url = host + "/api" + demoUrl; // &debug=true
-        $.ajax({
-            "url" : url,
-            "success": callback,
-            "error" : errCallback,
-            "type" : "GET",
-            "dataType": "jsonp"
-        });
-    } else {
+    var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string';
+    console.log("ArrayBuffer supported? " + arrayBufferSupported);
+    if(arrayBufferSupported) {
         // we need a very efficient way to get the probably huge number of points
         url = host + "/api" + demoUrl + "&type=bin";             
         var xhr = new XMLHttpRequest();
@@ -285,7 +285,14 @@ function doRequest(from, to, callback) {
                     }
                 };
                 
-                var i = 0;
+                var i = 0;                
+                var magix = dv.getInt32(i);
+                if(magix != 123456) {
+                    json.info.routeNotFound = true;
+                    callback(json);                    
+                    return;
+                }
+                i += 4;
                 json.info.took = dv.getFloat32(i);                
                 i += 4;
                 json.route.distance = dv.getFloat32(i);
@@ -310,6 +317,17 @@ function doRequest(from, to, callback) {
                 errCallback(e);
         };
         xhr.send();
+    } else {
+        // TODO use base64 and binary representation of points to reduce downloading
+        // or is it sufficient with our recently added gzip compression?
+        url = host + "/api" + demoUrl; // &debug=true
+        $.ajax({
+            "url" : url,
+            "success": callback,
+            "error" : errCallback,
+            "type" : "GET",
+            "dataType": "jsonp"
+        });        
     }
     
     console.log(url);    
@@ -323,17 +341,28 @@ function requestCenter() {
         "url": url,
         "success": function(json) {
             bounds = json.bbox;
-            var minLon = bounds[0];
-            var minLat = bounds[1];
-            var maxLon = bounds[2];
-            var maxLat = bounds[3];
-            currentCenter.lat = (minLat + maxLat) / 2;
-            currentCenter.lng = (minLon + maxLon) / 2;            
+                      
         },
         "error" : errCallback,
         "type" : "GET",
         "dataType": 'jsonp'
     });
+}
+
+function getCenter(bounds) {    
+    var center = {
+        lat : 0, 
+        lng : 0
+    };
+    if(bounds) {
+        var minLon = bounds[0];
+        var minLat = bounds[1];
+        var maxLon = bounds[2];
+        var maxLat = bounds[3];
+        center.lat = (minLat + maxLat) / 2;
+        center.lng = (minLon + maxLon) / 2;  
+    }
+    return center;
 }
 
 function parseUrlWithHisto() {
