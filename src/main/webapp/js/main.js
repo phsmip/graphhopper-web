@@ -173,9 +173,8 @@ function getInfoFromLocation(locCoord) {
             "type" : "GET",
             "dataType": "jsonp",
             "jsonpCallback": 'reverse_callback'
-        }).pipe(function(jsonArgs) {
-            var json = jsonArgs[0];
-            if(!json || json.length == 0) {
+        }).pipe(function(json) {
+            if(!json) {
                 locCoord.name = "No description found for coordinate";
                 return [locCoord];
             }
