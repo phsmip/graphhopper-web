@@ -156,7 +156,7 @@ public class GraphHopperServlet extends HttpServlet {
                             object("coordinates", points).
                             endObject().
                             endObject();
-                    res.setContentType("application/json");
+                    
                     writeJson(req, res, json.build());
                 }
 
@@ -210,13 +210,15 @@ public class GraphHopperServlet extends HttpServlet {
 
     private void writeJson(HttpServletRequest req, HttpServletResponse res, JSONObject json) throws JSONException {
         String type = getParam(req, "type");
-        if ("jsonp".equals(type)) {
+        if ("jsonp".equals(type)) {        
+            res.setContentType("application/javascript");
             String callbackName = getParam(req, "callback");
             if ("true".equals(getParam(req, "debug")))
                 writeResponse(res, callbackName + "(" + json.toString(2) + ")");
             else
                 writeResponse(res, callbackName + "(" + json.toString() + ")");
         } else {
+            res.setContentType("application/json");
             if ("true".equals(getParam(req, "debug")))
                 writeResponse(res, json.toString(2));
             else

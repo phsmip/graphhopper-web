@@ -16,11 +16,11 @@ var toCoord = {
     name: ""
 };
 var bounds = {};
+// local development
+//var host = "http://localhost:8989";
+
 // cross origin:
 var host = "http://217.92.216.224:8080";
-    
-// local development
-// var host = "http://localhost:8989";
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
@@ -54,7 +54,7 @@ function resolveCoords(from, to) {
 
 function initMap() {
     // var center = getCenter(bounds);
-    console.log("init map at " + bounds);
+    console.log("init map at " + JSON.stringify(bounds));
     map = L.map('map');
     map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
