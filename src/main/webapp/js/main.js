@@ -265,8 +265,7 @@ function doRequest(from, to, callback) {
     // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424    
     var demoUrl = "?from=" + from + "&to=" + to;
     var url;
-    var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string';
-    console.log("ArrayBuffer supported? " + arrayBufferSupported);
+    var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string';    
     if(arrayBufferSupported) {
         // we need a very efficient way to get the probably huge number of points
         url = host + "/api" + demoUrl + "&type=bin";             
@@ -320,9 +319,10 @@ function doRequest(from, to, callback) {
         };
         xhr.send();
     } else {
+        $("#warn").html('Probably slow. ArrayBuffer unsupported.');
         // TODO use base64 and binary representation of points to reduce downloading
         // or is it sufficient with our recently added gzip compression?
-        url = host + "/api" + demoUrl; // &debug=true
+        url = host + "/api" + demoUrl + "&type=jsonp"; // &debug=true
         $.ajax({
             "url" : url,
             "success": callback,
