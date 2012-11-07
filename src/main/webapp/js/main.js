@@ -5,10 +5,16 @@ var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
 var errCallback = function(err) {
-    alert("error:"+ err.statusText + ", " + err.responseText);
+    console.log("error:"+ err.statusText + ", " + err.responseText);
 };
-var fromCoord = { input: "", name: ""};
-var toCoord = { input: "", name: ""};
+var fromCoord = {
+    input: "", 
+    name: ""
+};
+var toCoord = {
+    input: "", 
+    name: ""
+};
 var bounds;
 // cross origin:
 var host = "http://217.92.216.224:8080";
@@ -63,7 +69,9 @@ function initMap() {
     // mapquest provider:
     var mapquestUrl = 'http://{s}.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png',
     subDomains = ['otile1','otile2','otile3','otile4'],
-    mapquestAttrib = 'Data, imagery and map information provided by <a href="http://open.mapquest.co.uk" target="_blank">MapQuest</a>,<a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a> and contributors.';
+    mapquestAttrib = 'Data provided by <a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a>,'
+    +'<a href="http://open.mapquest.co.uk" target="_blank">MapQuest</a> and contributors. '
+    +'Geocoder by <a href="http://wiki.openstreetmap.org/wiki/Nominatim">Nominatim</a>';
     L.tileLayer(mapquestUrl, {
         attribution: mapquestAttrib, 
         subdomains: subDomains
@@ -219,7 +227,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
     var from = toStr(fromPoint);
     var to = toStr(toPoint);
     if(from.indexOf('undefined') >= 0 || to.indexOf('undefined') >= 0) {
-        distDiv.html('routing not possible. location(s) not found in area ' + bounds);
+        distDiv.html('<small>routing not possible. location(s) not found in area<br/> ' + bounds + "</small>");
         return;
     }
     // do not overwrite input text!
@@ -319,7 +327,7 @@ function doRequest(from, to, callback) {
         };
         xhr.send();
     } else {
-        $("#warn").html('Probably slow. ArrayBuffer unsupported.');
+        $("#warn").html('Slowish data retrieval as ArrayBuffer is unsupported in your browser.');
         // TODO use base64 and binary representation of points to reduce downloading
         // or is it sufficient with our recently added gzip compression?
         url = host + "/api" + demoUrl + "&type=jsonp"; // &debug=true
@@ -341,10 +349,12 @@ function requestCenter() {
     return $.ajax({
         "url": url,
         "success": function(json) {
-            bounds = json.bbox;
-                      
+            bounds = json.bbox;                      
         },
-        "error" : errCallback,
+        "error" : function(e) {
+            $('#warn').html('GraphHopper API offline?');
+        },
+        "timeout" : 3000,
         "type" : "GET",
         "dataType": 'jsonp'
     });
