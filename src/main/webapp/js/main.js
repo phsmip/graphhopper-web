@@ -436,8 +436,8 @@ function initForm() {
     $('#fromInput').keypress(function(e) {
         if(e.which == 10 || e.which == 13) {
             var to = $("#toInput").val();
-            // do not resolve
-            if(toCoord.input == to) to = null;
+            // do not resolve 'to'
+            if(to == toCoord.input || to == "To") to = null;
             resolveCoords($("#fromInput").val(), to);
         }
     });
@@ -446,8 +446,8 @@ function initForm() {
     $('#toInput').keypress(function(e) {
         if(e.which == 10 || e.which == 13) {
             var from = $("#fromInput").val();
-            // do not resolve
-            if(toCoord.input == from) from = null;
+            // do not resolve from
+            if(from == fromCoord.input || from == "From") from = null;
             resolveCoords(from, $("#toInput").val());
         }
     });
