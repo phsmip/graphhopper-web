@@ -17,10 +17,10 @@ var toCoord = {
 };
 var bounds = {};
 // local development
-//var host = "http://localhost:8989";
+var host = "http://localhost:8989";
 
 // cross origin:
-var host = "http://217.92.216.224:8080";
+//var host = "http://217.92.216.224:8080";
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
@@ -76,13 +76,14 @@ function initMap() {
     }).addTo(map);
 
     routingLayer = L.geoJson().addTo(map);
+    var iconLayer = L.geoJson().addTo(map);
     
     var myStyle = {
-        "color": 'orange',
-        "weight": 3,
+        "color": 'black',
+        "weight": 2,
         "opacity": 0.3
     };
-     var geoJson = {
+    var geoJson = {
         "type": "Feature",        
         "geometry": {            
             "type": "LineString",
@@ -91,7 +92,9 @@ function initMap() {
             [bounds.minLon, bounds.minLat]]
         }
     };
-    var boundsLayer = L.geoJson(geoJson, {"style": myStyle}).addTo(map);        
+    L.geoJson(geoJson, {
+        "style": myStyle
+    }).addTo(map);        
     // boundsLayer.addData(geojsonFeature);  
     
     // limit area to underlying routing graph bounds!
@@ -99,12 +102,13 @@ function initMap() {
     //    map.setMaxBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), 
     //        new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
-    var popup = L.popup();    
     var routeNow = true;
+    var iconTo = L.icon({iconUrl: '../img/marker-to.png', iconAnchor: [10, 16]});
+    var iconFrom = L.icon({iconUrl: '../img/marker-from.png', iconAnchor: [10, 16]});
     function onMapClick(e) {        
         routeNow = !routeNow;
         if(routeNow) {            
-            popup.setLatLng(e.latlng).setContent("End").openOn(map);
+            L.marker([e.latlng.lat, e.latlng.lng], {icon: iconTo}).addTo(iconLayer).bindPopup("Finish");
             var endPoint = e.latlng;
             toCoord.lat = round(endPoint.lat);
             toCoord.lng = round(endPoint.lng);
@@ -114,7 +118,9 @@ function initMap() {
                 routeLatLng(fromCoord, toCoord);
             });            
         } else {
-            popup.setLatLng(e.latlng).setContent("Start").openOn(map);            
+            iconLayer.clearLayers();
+            routingLayer.clearLayers();
+            L.marker([e.latlng.lat, e.latlng.lng], {icon: iconFrom}).addTo(iconLayer).bindPopup("Start");
             fromCoord.lat = round(e.latlng.lat);
             fromCoord.lng = round(e.latlng.lng);
             fromCoord.input = toStr(fromCoord);            

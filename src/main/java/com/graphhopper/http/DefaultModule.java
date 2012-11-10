@@ -23,6 +23,7 @@ public class DefaultModule extends AbstractModule {
         String path = "/media/SAMSUNG/maps/";
 //        String area = "bayern";
         String area = "unterfranken";
+//        String area = "oberfranken";
 //        String area = "germany";
         String graphhopperLoc = path + area + "-gh";
         CmdArgs args = new CmdArgs().put("osmreader.osm", path + area + ".osm").
