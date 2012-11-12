@@ -104,10 +104,9 @@ function initMap() {
     var imgPath;
     if(window.location.protocol == 'file://') {
         imgPath = "../img";
-    } else if (window.location.host.indexOf('localhost') == 0) {
+    } else 
         imgPath = "./img";
-    } else
-        imgPath = "./maps/img";
+    }
     var iconTo = L.icon({
         iconUrl: imgPath + '/marker-to.png', 
         iconAnchor: [10, 16]
