@@ -106,7 +106,7 @@ function initMap() {
         imgPath = "../img";
     } else 
         imgPath = "./img";
-    }
+    
     var iconTo = L.icon({
         iconUrl: imgPath + '/marker-to.png', 
         iconAnchor: [10, 16]
