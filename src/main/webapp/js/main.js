@@ -101,12 +101,19 @@ function initMap() {
     //        new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
     var routeNow = true;
+    var imgPath;
+    if(window.location.protocol == 'file://') {
+        imgPath = "../img";
+    } else if (window.location.host.indexOf('localhost') == 0) {
+        imgPath = "./img";
+    } else
+        imgPath = "./maps/img";
     var iconTo = L.icon({
-        iconUrl: '../img/marker-to.png', 
+        iconUrl: imgPath + '/marker-to.png', 
         iconAnchor: [10, 16]
         });
     var iconFrom = L.icon({
-        iconUrl: '../img/marker-from.png', 
+        iconUrl: imgPath + '/marker-from.png', 
         iconAnchor: [10, 16]
         });
     function onMapClick(e) {        
@@ -307,7 +314,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
     });
 }
 
-function doRequest(from, to, callback) {
+function doRequest(from, to, callback) {    
     // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424    
     var demoUrl = "?from=" + from + "&to=" + to;
     var url;
