@@ -280,7 +280,8 @@ function routeLatLng(fromPoint, toPoint, doPan) {
                 
         distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
             +"time: " + json.route.time + "min<br/>"
-            +"took: " + round(json.info.took, 1000) + "s"); 
+            +"took: " + round(json.info.took, 1000) + "s<br/>"
+            +"points: " + json.route.data.coordinates.length); 
         $("#info").append(distDiv);
         var googleLink = $("<a>Google</a>");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + from + "+to:" + to);
