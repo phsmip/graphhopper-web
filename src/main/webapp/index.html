@@ -4,7 +4,7 @@
         <meta name="viewport" content="width=320; initial-scale=1.0;" />
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta name="keywords" content="road routing,shortest path,maps,openstreetmap,android,navigation,routenplaner"/>
-        <link type="image/png" rel="icon" href="favicon.ico"/>
+        <link type="image/png" rel="icon" href="/favicon.ico"/>
         <link href='http://fonts.googleapis.com/css?family=Arbutus+Slab' rel='stylesheet' type='text/css'>        
         <title>GraphHopper Web Demo</title>        
 
@@ -41,7 +41,10 @@
                 position: absolute; 
                 left: -9999px;
             }
-            #fromInput, #toInput, #input {
+            #input {
+                width: 225px;
+            }
+            #fromInput, #toInput {
                 width: 200px;
             }
             #fromFound, #toFound {
@@ -61,6 +64,11 @@
                 padding-top: 20px;
                 color: #666666                    
             }
+            #fromDiv img, #toDiv img {
+                margin-top: 4px;
+                padding-right: 3px;                
+                float: left;
+            }
         </style>
     </head>
     <body>
@@ -72,10 +80,16 @@
         <h1>GraphHopper Web Demo</h1>
         <div id="input">
             <form id="locationform" action="javascript:return false;">
-                <input id="fromInput" class="defaulting" type="text" name="from"  value="From" defaultValue="From"/>
-                <div id="fromFound"></div>
-                <input id="toInput" class="defaulting" type="text" name="to" value="To" defaultValue="To"/>
-                <div id="toFound"></div>
+                <div id="fromDiv">
+                    <img src="img/marker-from.png"/>
+                    <input id="fromInput" class="defaulting" type="text" name="from"  value="From" defaultValue="From"/>                
+                    <div id="fromFound"></div>
+                </div>
+                <div id="toDiv">
+                    <img src="img/marker-to.png"/>
+                    <input id="toInput" class="defaulting" type="text" name="to" value="To" defaultValue="To"/>
+                    <div id="toFound"></div>
+                </div>
                 <input id="hiddenButton" type="submit">
             </form>
             <div id="warn">

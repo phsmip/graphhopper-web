@@ -1,7 +1,7 @@
 // fixing cross domain support e.g in Opera
 jQuery.support.cors = true;
 
-var routingLayer;
+var routingLayer, iconLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
 var errCallback = function(err) {
@@ -15,6 +15,14 @@ var toCoord = {
     input: "", 
     name: ""
 };
+var iconTo = L.icon({
+    iconUrl: './img/marker-to.png', 
+    iconAnchor: [10, 16]
+});
+var iconFrom = L.icon({
+    iconUrl: './img/marker-from.png', 
+    iconAnchor: [10, 16]
+});
 var bounds = {};
 // local development
 //var host = "http://localhost:8989";
@@ -72,10 +80,6 @@ function initMap() {
         attribution: mapquestAttrib, 
         subdomains: subDomains
     }).addTo(map);
-
-    routingLayer = L.geoJson().addTo(map);
-    var iconLayer = L.geoJson().addTo(map);
-    
     var myStyle = {
         "color": 'black',
         "weight": 2,
@@ -92,7 +96,10 @@ function initMap() {
     };
     L.geoJson(geoJson, {
         "style": myStyle
-    }).addTo(map);        
+    }).addTo(map); 
+    
+    routingLayer = L.geoJson().addTo(map);
+    iconLayer = L.geoJson().addTo(map);
     // boundsLayer.addData(geojsonFeature);  
     
     // limit area to underlying routing graph bounds!
@@ -100,28 +107,11 @@ function initMap() {
     //    map.setMaxBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), 
     //        new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
-    var routeNow = true;
-    var imgPath;
-    if(window.location.protocol == 'file://') {
-        imgPath = "../img";
-    } else 
-        imgPath = "./img";
-    
-    var iconTo = L.icon({
-        iconUrl: imgPath + '/marker-to.png', 
-        iconAnchor: [10, 16]
-        });
-    var iconFrom = L.icon({
-        iconUrl: imgPath + '/marker-from.png', 
-        iconAnchor: [10, 16]
-        });
+    var routeNow = true;    
     function onMapClick(e) {        
         routeNow = !routeNow;
         if(routeNow) {            
-            L.marker([e.latlng.lat, e.latlng.lng], {
-                icon: iconTo
-            }).addTo(iconLayer).bindPopup("Finish");
-            var endPoint = e.latlng;
+            var endPoint = e.latlng;            
             toCoord.lat = round(endPoint.lat);
             toCoord.lng = round(endPoint.lng);
             toCoord.input = toStr(toCoord);            
@@ -131,10 +121,7 @@ function initMap() {
             });            
         } else {
             iconLayer.clearLayers();
-            routingLayer.clearLayers();
-            L.marker([e.latlng.lat, e.latlng.lng], {
-                icon: iconFrom
-            }).addTo(iconLayer).bindPopup("Start");
+            routingLayer.clearLayers();            
             fromCoord.lat = round(e.latlng.lat);
             fromCoord.lng = round(e.latlng.lng);
             fromCoord.input = toStr(fromCoord);            
@@ -172,10 +159,15 @@ function toLatLng(str) {
 
 function setFrom(coordStr) {
     if(coordStr)    
-        fromCoord = toLatLng(coordStr);    
+        fromCoord = toLatLng(coordStr);
     
     return getInfoFromLocation(fromCoord).done(function() {
         fromCoord.resolved = true;
+        if(fromCoord.lat) {
+            L.marker([fromCoord.lat, fromCoord.lng], {
+                icon: iconFrom
+            }).addTo(iconLayer).bindPopup("Start");
+        }
         $("#fromInput").val(fromCoord.input);
         $("#fromFound").html(fromCoord.name);
         return fromCoord;
@@ -184,9 +176,14 @@ function setFrom(coordStr) {
 function setTo(coordStr) {
     if(coordStr)
         toCoord = toLatLng(coordStr);
-    
-    return getInfoFromLocation(toCoord).done(function() {
+        
+    return getInfoFromLocation(toCoord).done(function() {        
         toCoord.resolved = true;                
+        if(toCoord.lat) {
+            L.marker([toCoord.lat, toCoord.lng], {
+                icon: iconTo
+            }).addTo(iconLayer).bindPopup("Finish");
+        }
         $("#toInput").val(toCoord.input);
         $("#toFound").html(toCoord.name);
         return toCoord;
