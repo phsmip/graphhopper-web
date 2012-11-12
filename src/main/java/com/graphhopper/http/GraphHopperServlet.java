@@ -44,12 +44,9 @@ import org.slf4j.LoggerFactory;
 public class GraphHopperServlet extends HttpServlet {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
-    @Inject
-    private Graph graph;
-    @Inject
-    private Location2IDIndex index;
-    @Inject
-    private AlgorithmPreparation prepare;
+    @Inject private Graph graph;
+    @Inject private Location2IDIndex index;
+    @Inject private AlgorithmPreparation prepare;
 
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
