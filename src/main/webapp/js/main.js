@@ -1,7 +1,7 @@
 // fixing cross domain support e.g in Opera
 jQuery.support.cors = true;
 
-var routingLayer, iconLayer;
+var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
 var errCallback = function(err) {
@@ -52,7 +52,8 @@ $(document).ready(function(e) {
     })
 });
             
-function resolveCoords(from, to) {    
+function resolveCoords(from, to) { 
+    routingLayer.clearLayers();
     $.when(setFrom(from), setTo(to)).done(function(fromArgs, toArgs) {                
         routeLatLng(fromArgs[0], toArgs[0], true);        
     });    
@@ -99,7 +100,6 @@ function initMap() {
     }).addTo(map); 
     
     routingLayer = L.geoJson().addTo(map);
-    iconLayer = L.geoJson().addTo(map);
     // boundsLayer.addData(geojsonFeature);  
     
     // limit area to underlying routing graph bounds!
@@ -119,9 +119,8 @@ function initMap() {
             setTo().done(function() {
                 routeLatLng(fromCoord, toCoord);
             });            
-        } else {
-            iconLayer.clearLayers();
-            routingLayer.clearLayers();            
+        } else {     
+            routingLayer.clearLayers();
             fromCoord.lat = round(e.latlng.lat);
             fromCoord.lng = round(e.latlng.lng);
             fromCoord.input = toStr(fromCoord);            
@@ -166,7 +165,7 @@ function setFrom(coordStr) {
         if(fromCoord.lat) {
             L.marker([fromCoord.lat, fromCoord.lng], {
                 icon: iconFrom
-            }).addTo(iconLayer).bindPopup("Start");
+            }).addTo(routingLayer).bindPopup("Start");
         }
         $("#fromInput").val(fromCoord.input);
         $("#fromFound").html(fromCoord.name);
@@ -182,7 +181,7 @@ function setTo(coordStr) {
         if(toCoord.lat) {
             L.marker([toCoord.lat, toCoord.lng], {
                 icon: iconTo
-            }).addTo(iconLayer).bindPopup("Finish");
+            }).addTo(routingLayer).bindPopup("Finish");
         }
         $("#toInput").val(toCoord.input);
         $("#toFound").html(toCoord.name);
@@ -257,7 +256,6 @@ function getInfoFromLocation(locCoord) {
 }
 
 function routeLatLng(fromPoint, toPoint, doPan) {
-    routingLayer.clearLayers();
     $("#info").empty();
     var distDiv = $("<div/>");
     $("#info").append(distDiv);
