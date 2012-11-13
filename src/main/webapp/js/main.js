@@ -228,8 +228,9 @@ function getInfoFromLocation(locCoord) {
             return [locCoord];
         });        
     } else {
+        // see https://trac.openstreetmap.org/ticket/4683 why limit=3 and not 1
         var url = "http://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(locCoord.input)
-        +"&limit=1&json_callback=search_callback" + getInfoTmpCounter;
+        +"&limit=3&json_callback=search_callback" + getInfoTmpCounter;
         if(bounds.initialized) {
             // minLon, minLat, maxLon, maxLat => left, top, right, bottom
             url += "&bounded=1&viewbox=" + bounds.minLon + ","+bounds.maxLat + ","+bounds.maxLon +","+ bounds.minLat;
