@@ -297,12 +297,15 @@ function routeLatLng(fromPoint, toPoint, doPan) {
             +"took: " + round(json.info.took, 1000) + "s<br/>"
             +"points: " + json.route.data.coordinates.length); 
         $("#info").append(distDiv);
-        var googleLink = $("<a>Google</a>");
+        var osrmLink = $("<a>OSRM</a> ");
+        osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
+        $("#info").append(osrmLink);
+        var googleLink = $("<a>Google</a> ");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + from + "+to:" + to);
         $("#info").append(googleLink);
-        var osrmLink = $("<br/><a>OSRM</a>");
-        osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
-        $("#info").append(osrmLink);        
+        var bingLink = $("<a>Bing</a> ");        
+        bingLink.attr("href", "http://www.bing.com/maps/default.aspx?rtp=adr." + from + "~adr." + to);
+        $("#info").append(bingLink);
         $('.defaulting').each(function(index, element) {
             $(element).css("color", "black");
         });
