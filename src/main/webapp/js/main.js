@@ -55,7 +55,7 @@ $(document).ready(function(e) {
 function resolveCoords(from, to) { 
     routingLayer.clearLayers();
     $.when(setFrom(from), setTo(to)).done(function(fromArgs, toArgs) {                
-        routeLatLng(fromArgs[0], toArgs[0], true);        
+        routeLatLng(fromArgs[0], toArgs[0]);
     });    
 }
 
@@ -256,7 +256,7 @@ function getInfoFromLocation(locCoord) {
     }
 }
 
-function routeLatLng(fromPoint, toPoint, doPan) {
+function routeLatLng(fromPoint, toPoint) {
     $("#info").empty();
     var distDiv = $("<div/>");
     $("#info").append(distDiv);
@@ -264,7 +264,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
     var from = toStr(fromPoint);
     var to = toStr(toPoint);
     if(from.indexOf('undefined') >= 0 || to.indexOf('undefined') >= 0) {
-        distDiv.html('<small>routing not possible. location(s) not found in area (marked with orange border)</small>');
+        distDiv.html('<small>routing not possible. location(s) not found in the area</small>');
         return;
     }
     // do not overwrite input text!
@@ -282,7 +282,7 @@ function routeLatLng(fromPoint, toPoint, doPan) {
         };
         routingLayer.addData(geojsonFeature);        
         var coords = json.route.data.coordinates;
-        if(doPan && coords && coords.length > 0) {
+        if(coords && coords.length > 0) {
             var start = coords[0];
             var end = coords[coords.length - 1];
             var minLat = Math.min(start[1], end[1]);
@@ -316,7 +316,7 @@ function doRequest(from, to, callback) {
     // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424    
     var demoUrl = "?from=" + from + "&to=" + to;
     var url;
-    var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string'
+    var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string' 
     && typeof DataView === 'function';    
     
     if(arrayBufferSupported) {

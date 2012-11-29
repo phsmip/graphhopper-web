@@ -15,19 +15,20 @@
  */
 package com.graphhopper.http;
 
-import com.google.inject.Inject;
 import com.graphhopper.routing.AStar;
 import com.graphhopper.routing.Path;
 import com.graphhopper.routing.util.AlgorithmPreparation;
 import com.graphhopper.routing.util.FastestCarCalc;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
+import com.graphhopper.util.DouglasPeucker;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import javax.inject.Inject;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -83,6 +84,13 @@ public class GraphHopperServlet extends HttpServlet {
             String[] toStrs = toParam.split(",");
             double toLat = Double.parseDouble(toStrs[0]);
             double toLon = Double.parseDouble(toStrs[1]);
+
+            // we can reduce the path length based on the maximum distance moving away from the original coordinates
+            double acceptedMaxDistance = 1;
+            try {
+                acceptedMaxDistance = Double.parseDouble(getParam(req, "maxReduction"));
+            } catch (Exception ex) {
+            }
             try {
                 StopWatch sw = new StopWatch().start();
                 int from = index.findID(fromLat, fromLon);
@@ -93,15 +101,17 @@ public class GraphHopperServlet extends HttpServlet {
 //            Path p = calcPath(from, to);
                 Path p = calcPreparedGraphPath(from, to);
                 float routeLookupTime = sw.stop().getSeconds();
-                String infoStr;
-                if (p.found())
-                    infoStr = "path found";
-                else
-                    infoStr = "NO path found";
+                String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
+                int origNodes = p.nodes();
+                if (p.found()) {
+                    p.simplify(new DouglasPeucker(graph).setMaxDist(acceptedMaxDistance));
+                    infoStr += " path found";
+                } else
+                    infoStr += " NO path found";
 
-                double dist = p.distance();
+                int nodes = p.nodes();
+                double dist = p.distance() / 1000;
                 int time = Math.round(p.time() / 60f);
-                int locs = p.nodes();
                 String type = getParam(req, "type");
                 if ("bin".equals(type)) {
                     // for type=bin we cannot do jsonp so do:
@@ -116,8 +126,8 @@ public class GraphHopperServlet extends HttpServlet {
                     // time
                     stream.writeInt(time);
                     // locations
-                    stream.writeInt(locs);
-                    for (int i = 0; i < locs; i++) {
+                    stream.writeInt(nodes);
+                    for (int i = 0; i < nodes; i++) {
                         int loc = p.node(i);
                         stream.writeFloat((float) graph.getLatitude(loc));
                         stream.writeFloat((float) graph.getLongitude(loc));
@@ -128,8 +138,8 @@ public class GraphHopperServlet extends HttpServlet {
                     res.setContentLength(stream.size());
                     res.setStatus(200);
                 } else {
-                    ArrayList<Double[]> points = new ArrayList<Double[]>(locs);
-                    for (int i = 0; i < locs; i++) {
+                    ArrayList<Double[]> points = new ArrayList<Double[]>(nodes);
+                    for (int i = 0; i < nodes; i++) {
                         int loc = p.node(i);
                         // geoJson is LON,LAT!
                         points.add(new Double[]{
@@ -153,13 +163,14 @@ public class GraphHopperServlet extends HttpServlet {
                             object("coordinates", points).
                             endObject().
                             endObject();
-                    
+
                     writeJson(req, res, json.build());
                 }
 
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
-                        + ", distance: " + dist + ", time:" + time + "min, locations:" + locs
-                        + ", routeLookupTime:" + routeLookupTime + ", idLookupTime:" + idLookupTime);
+                        + ", distance: " + dist + ", time:" + time + "min, nodes:" + nodes
+                        + " (" + origNodes + "), routeLookupTime:" + routeLookupTime
+                        + ", idLookupTime:" + idLookupTime);
             } catch (Exception ex) {
                 logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
                 writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
@@ -207,7 +218,7 @@ public class GraphHopperServlet extends HttpServlet {
 
     private void writeJson(HttpServletRequest req, HttpServletResponse res, JSONObject json) throws JSONException {
         String type = getParam(req, "type");
-        if ("jsonp".equals(type)) {        
+        if ("jsonp".equals(type)) {
             res.setContentType("application/javascript");
             String callbackName = getParam(req, "callback");
             if ("true".equals(getParam(req, "debug")))

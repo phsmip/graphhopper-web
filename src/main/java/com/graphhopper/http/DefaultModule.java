@@ -5,8 +5,6 @@ import com.graphhopper.reader.OSMReader;
 import com.graphhopper.routing.util.AlgorithmPreparation;
 import com.graphhopper.storage.Graph;
 import com.graphhopper.storage.Location2IDIndex;
-import com.graphhopper.storage.Location2IDQuadtree;
-import com.graphhopper.storage.RAMDirectory;
 import com.graphhopper.util.CmdArgs;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -28,20 +26,17 @@ public class DefaultModule extends AbstractModule {
         String graphhopperLoc = path + area + "-gh";
         CmdArgs args = new CmdArgs().put("osmreader.osm", path + area + ".osm").
                 put("osmreader.graph-location", graphhopperLoc).
+                put("osmreader.locationIndexCapacity", "200000").
                 put("osmreader.levelgraph", "true").
                 put("osmreader.chShortcuts", "fastest");
-        Graph graph;
+
         try {
             OSMReader reader = OSMReader.osm2Graph(args);
-            bind(Graph.class).toInstance(graph = reader.getGraph());
+            bind(Graph.class).toInstance(reader.getGraph());
             bind(AlgorithmPreparation.class).toInstance(reader.getPreparation());
+            bind(Location2IDIndex.class).toInstance(reader.getLocation2IDIndex());
         } catch (Exception ex) {
             throw new RuntimeException("cannot initialize graph", ex);
         }
-
-        logger.info("now initializing index");
-        Location2IDIndex index = new Location2IDQuadtree(graph,
-                new RAMDirectory(graphhopperLoc + "/loc2idIndex")).prepareIndex(200000);
-        bind(Location2IDIndex.class).toInstance(index);
     }
 }

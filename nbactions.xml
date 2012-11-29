@@ -9,7 +9,7 @@
         <properties>
             <maven.test.skip>true</maven.test.skip>
             <!-- for germany we need a bit more RAM -->
-            <Env.MAVEN_OPTS>-Xms2500m -Xms2500m -XX:PermSize=22m -XX:MaxPermSize=22m</Env.MAVEN_OPTS>
+            <Env.MAVEN_OPTS>-Xms2000m -Xms2000m -XX:PermSize=22m -XX:MaxPermSize=22m</Env.MAVEN_OPTS>
         </properties>
     </action>
     <action>
@@ -22,7 +22,7 @@
         <properties>
             <maven.test.skip>true</maven.test.skip>
             <!-- for germany we need a bit more RAM -->
-            <Env.MAVEN_OPTS>-Xms2500m -Xms2500m -XX:PermSize=22m -XX:MaxPermSize=22m -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=8000</Env.MAVEN_OPTS>            
+            <Env.MAVEN_OPTS>-Xms2000m -Xms2000m -XX:PermSize=22m -XX:MaxPermSize=22m -Xdebug -Xrunjdwp:transport=dt_socket,server=y,address=8000</Env.MAVEN_OPTS>            
         </properties>
     </action>
 </actions>
