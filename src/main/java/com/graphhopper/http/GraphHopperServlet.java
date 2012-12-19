@@ -15,15 +15,12 @@
  */
 package com.graphhopper.http;
 
-import com.graphhopper.routing.AStar;
-import com.graphhopper.routing.Path;
-import com.graphhopper.routing.util.AlgorithmPreparation;
-import com.graphhopper.routing.util.FastestCarCalc;
-import com.graphhopper.storage.Graph;
-import com.graphhopper.storage.Location2IDIndex;
-import com.graphhopper.util.DouglasPeucker;
+import com.graphhopper.GHRequest;
+import com.graphhopper.GraphHopper;
+import com.graphhopper.GHResponse;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
+import com.graphhopper.util.shapes.GeoPoint;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -45,9 +42,7 @@ import org.slf4j.LoggerFactory;
 public class GraphHopperServlet extends HttpServlet {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
-    @Inject private Graph graph;
-    @Inject private Location2IDIndex index;
-    @Inject private AlgorithmPreparation prepare;
+    @Inject private GraphHopper hopper;
 
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -63,7 +58,7 @@ public class GraphHopperServlet extends HttpServlet {
     }
 
     void writeBounds(HttpServletRequest req, HttpServletResponse res) throws JSONException {
-        BBox bb = graph.getBounds();
+        BBox bb = hopper.getGraph().getBounds();
         List<Double> list = new ArrayList<Double>(4);
         list.add(bb.minLon);
         list.add(bb.minLat);
@@ -88,28 +83,22 @@ public class GraphHopperServlet extends HttpServlet {
             // we can reduce the path length based on the maximum distance moving away from the original coordinates
             double acceptedMaxDistance = 1;
             try {
-                acceptedMaxDistance = Double.parseDouble(getParam(req, "maxReduction"));
+                acceptedMaxDistance = Double.parseDouble(getParam(req, "minPathPrecision"));
             } catch (Exception ex) {
             }
             try {
                 StopWatch sw = new StopWatch().start();
-                int from = index.findID(fromLat, fromLon);
-                int to = index.findID(toLat, toLon);
-                float idLookupTime = sw.stop().getSeconds();
-
-                sw = new StopWatch().start();
-//            Path p = calcPath(from, to);
-                Path p = calcPreparedGraphPath(from, to);
-                float routeLookupTime = sw.stop().getSeconds();
+                GHResponse p = hopper.route(new GHRequest().
+                        points(fromLat, fromLon, toLat, toLon).
+                        minPathPrecision(acceptedMaxDistance));
+                float took = sw.stop().getSeconds();
                 String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
-                int origNodes = p.nodes();
+                int nodes = p.points().size();
                 if (p.found()) {
-                    p.simplify(new DouglasPeucker(graph).setMaxDist(acceptedMaxDistance));
                     infoStr += " path found";
                 } else
                     infoStr += " NO path found";
 
-                int nodes = p.nodes();
                 double dist = p.distance() / 1000;
                 int time = Math.round(p.time() / 60f);
                 String type = getParam(req, "type");
@@ -120,17 +109,16 @@ public class GraphHopperServlet extends HttpServlet {
                     // write magix number
                     stream.writeInt(123456);
                     // took
-                    stream.writeFloat(idLookupTime + routeLookupTime);
+                    stream.writeFloat(took);
                     // distance
                     stream.writeFloat((float) dist);
                     // time
                     stream.writeInt(time);
                     // locations
                     stream.writeInt(nodes);
-                    for (int i = 0; i < nodes; i++) {
-                        int loc = p.node(i);
-                        stream.writeFloat((float) graph.getLatitude(loc));
-                        stream.writeFloat((float) graph.getLongitude(loc));
+                    for (GeoPoint gp : p.points()) {
+                        stream.writeFloat((float) gp.lat);
+                        stream.writeFloat((float) gp.lon);
                     }
 
                     // String points = DatatypeConverter.printBase64Binary(bOut.toByteArray());
@@ -139,19 +127,12 @@ public class GraphHopperServlet extends HttpServlet {
                     res.setStatus(200);
                 } else {
                     ArrayList<Double[]> points = new ArrayList<Double[]>(nodes);
-                    for (int i = 0; i < nodes; i++) {
-                        int loc = p.node(i);
-                        // geoJson is LON,LAT!
-                        points.add(new Double[]{
-                                    graph.getLongitude(loc),
-                                    graph.getLatitude(loc)
-                                });
+                    for (GeoPoint gp : p.points()) {
+                        points.add(gp.toGeoJson());
                     }
                     JSONBuilder json = new JSONBuilder().
                             startObject("info").
-                            object("took", idLookupTime + routeLookupTime).
-                            object("lookupTime", idLookupTime).
-                            object("routeTime", routeLookupTime).
+                            object("took", took).
                             endObject().
                             startObject("route").
                             object("from", new Double[]{fromLon, fromLat}).
@@ -169,8 +150,7 @@ public class GraphHopperServlet extends HttpServlet {
 
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
                         + ", distance: " + dist + ", time:" + time + "min, nodes:" + nodes
-                        + " (" + origNodes + "), routeLookupTime:" + routeLookupTime
-                        + ", idLookupTime:" + idLookupTime);
+                        + ", took:" + took);
             } catch (Exception ex) {
                 logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
                 writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
@@ -204,16 +184,6 @@ public class GraphHopperServlet extends HttpServlet {
         } catch (IOException ex) {
             logger.error("Cannot write message:" + str, ex);
         }
-    }
-
-    private Path calcPath(int from, int to) {
-        // every request create a new independent algorithm instance (not thread safe!)
-        AStar algo = new AStar(graph);
-        return algo.setApproximation(false).setType(FastestCarCalc.DEFAULT).calcPath(from, to);
-    }
-
-    private Path calcPreparedGraphPath(int from, int to) {
-        return prepare.createAlgo().calcPath(from, to);
     }
 
     private void writeJson(HttpServletRequest req, HttpServletResponse res, JSONObject json) throws JSONException {

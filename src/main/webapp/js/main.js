@@ -25,10 +25,10 @@ var iconFrom = L.icon({
 });
 var bounds = {};
 // local development
-//var host = "http://localhost:8989";
+var host = "http://localhost:8989";
 
 // cross origin:
-var host = "http://217.92.216.224:8080";
+//var host = "http://217.92.216.224:8080";
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
