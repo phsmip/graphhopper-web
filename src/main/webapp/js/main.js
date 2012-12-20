@@ -7,6 +7,7 @@ var browserTitle = "GraphHopper Web Demo";
 var errCallback = function(err) {
     console.log("error:"+ err.statusText + ", " + err.responseText);
 };
+var minPathPrecision = 1;
 var fromCoord = {
     input: "", 
     name: ""
@@ -43,7 +44,9 @@ $(document).ready(function(e) {
     initForm();
     requestBounds().done(function(){
         initMap();
-        var params = parseUrlWithHisto()
+        var params = parseUrlWithHisto()        
+        if(params.minPathPrecision)
+            minPathPrecision = params.minPathPrecision;
         if(params.from && params.to) {
             fromCoord = toLatLng(params.from);
             toCoord = toLatLng(params.to);
@@ -268,7 +271,10 @@ function routeLatLng(fromPoint, toPoint) {
         return;
     }
     // do not overwrite input text!
-    History.pushState({}, browserTitle, "?from=" + fromPoint.input + "&to=" + toPoint.input);
+    var historyUrl = "?from=" + fromPoint.input + "&to=" + toPoint.input;
+    if(minPathPrecision != 1)
+        historyUrl += "&minPathPrecision=" + minPathPrecision;
+    History.pushState({}, browserTitle, historyUrl);
     doRequest(from, to, function (json) {        
         if(json.info.routeNotFound) {
             distDiv.html('route not found');            
@@ -314,7 +320,7 @@ function routeLatLng(fromPoint, toPoint) {
 
 function doRequest(from, to, callback) {    
     // example: http://localhost:8989/api?from=52.439688,13.276863&to=52.532932,13.479424    
-    var demoUrl = "?from=" + from + "&to=" + to;
+    var demoUrl = "?from=" + from + "&to=" + to + "&minPathPrecision=" + minPathPrecision;
     var url;
     var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string' 
     && typeof DataView === 'function';    

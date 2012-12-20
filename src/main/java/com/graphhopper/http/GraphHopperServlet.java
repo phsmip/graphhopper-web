@@ -81,16 +81,16 @@ public class GraphHopperServlet extends HttpServlet {
             double toLon = Double.parseDouble(toStrs[1]);
 
             // we can reduce the path length based on the maximum distance moving away from the original coordinates
-            double acceptedMaxDistance = 1;
+            double minPathPrecision = 1;
             try {
-                acceptedMaxDistance = Double.parseDouble(getParam(req, "minPathPrecision"));
+                minPathPrecision = Double.parseDouble(getParam(req, "minPathPrecision"));
             } catch (Exception ex) {
             }
             try {
                 StopWatch sw = new StopWatch().start();
-                GHResponse p = hopper.route(new GHRequest().
-                        points(fromLat, fromLon, toLat, toLon).
-                        minPathPrecision(acceptedMaxDistance));
+                GHResponse p = hopper.route(new GHRequest(fromLat, fromLon, toLat, toLon)
+                        .algorithm("dijkstrabi")
+                        .minPathPrecision(minPathPrecision));
                 float took = sw.stop().getSeconds();
                 String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
                 int nodes = p.points().size();

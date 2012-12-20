@@ -25,7 +25,8 @@ public class DefaultModule extends AbstractModule {
             try {
                 String ghLocation = args.get("graphhopperweb.graph-location", "");
                 GraphHopper hopper = new GraphHopper().setGraphHopperLocation(ghLocation);
-                hopper.load(osmFile);
+                hopper.levelGraph();
+                hopper.forServer().load(osmFile);
                 bind(GraphHopper.class).toInstance(hopper);
             } catch (Exception ex) {
                 throw new IllegalStateException("Couldn't load graph", ex);
