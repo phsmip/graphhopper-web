@@ -20,7 +20,7 @@ import com.graphhopper.GraphHopper;
 import com.graphhopper.GHResponse;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
-import com.graphhopper.util.shapes.GeoPoint;
+import com.graphhopper.util.shapes.GHPoint;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -116,7 +116,7 @@ public class GraphHopperServlet extends HttpServlet {
                     stream.writeInt(time);
                     // locations
                     stream.writeInt(nodes);
-                    for (GeoPoint gp : p.points()) {
+                    for (GHPoint gp : p.points()) {
                         stream.writeFloat((float) gp.lat);
                         stream.writeFloat((float) gp.lon);
                     }
@@ -127,7 +127,7 @@ public class GraphHopperServlet extends HttpServlet {
                     res.setStatus(200);
                 } else {
                     ArrayList<Double[]> points = new ArrayList<Double[]>(nodes);
-                    for (GeoPoint gp : p.points()) {
+                    for (GHPoint gp : p.points()) {
                         points.add(gp.toGeoJson());
                     }
                     JSONBuilder json = new JSONBuilder().
