@@ -1,11 +1,18 @@
 // fixing cross domain support e.g in Opera
 jQuery.support.cors = true;
 
+var nominatim = "http://open.mapquestapi.com/nominatim/v1/search.php";
+var nominatim_reverse = "http://open.mapquestapi.com/nominatim/v1/reverse.php";
+// var nominatim = "http://nominatim.openstreetmap.org/search";
+// var nominatim_reverse = "http://nominatim.openstreetmap.org/reverse";
 var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
 var errCallback = function(err) {
-    console.log("error:"+ err.statusText + ", " + err.responseText);
+    if(err.statusText == "timeout")
+        alert("Timeout reached");    
+    
+    console.log(err); // console.log("error:"+ err.statusText + ", " + err.responseText);
 };
 var minPathPrecision = 1;
 var fromCoord = {
@@ -26,10 +33,10 @@ var iconFrom = L.icon({
 });
 var bounds = {};
 // local development
-var host = "http://localhost:8989";
+//var host = "http://localhost:8989";
 
 // cross origin:
-//var host = "http://217.92.216.224:8080";
+var host = "http://217.92.216.224:8080";
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
@@ -203,18 +210,19 @@ function getInfoFromLocation(locCoord) {
     // Every call to getInfoFromLocation needs to get its own callback. Sadly we need to overwrite 
     // the callback method name for nominatim and cannot use the default jQuery behaviour.
     getInfoTmpCounter++;
+    var url;
     if(locCoord.lat && locCoord.lng) {
         // in every case overwrite name
         locCoord.name = "Error while looking up coordinate";
-        var url = "http://nominatim.openstreetmap.org/reverse?lat=" + locCoord.lat + "&lon="
+        url = nominatim_reverse + "?lat=" + locCoord.lat + "&lon="
         + locCoord.lng + "&format=json&zoom=16&json_callback=reverse_callback" + getInfoTmpCounter;
         return $.ajax({
-            "url": url,
-            "error" : errCallback,
-            "type" : "GET",
-            "dataType": "jsonp",
-            "jsonpCallback": 'reverse_callback' + getInfoTmpCounter
-        }).pipe(function(json) {
+            url: url,
+            type : "GET",
+            dataType: "jsonp",
+            timeout: 3000,
+            jsonpCallback: 'reverse_callback' + getInfoTmpCounter            
+        }).fail(errCallback).pipe(function(json) {
             if(!json) {
                 locCoord.name = "No description found for coordinate";
                 return [locCoord];
@@ -232,7 +240,7 @@ function getInfoFromLocation(locCoord) {
         });        
     } else {
         // see https://trac.openstreetmap.org/ticket/4683 why limit=3 and not 1
-        var url = "http://nominatim.openstreetmap.org/search?format=json&q=" + encodeURIComponent(locCoord.input)
+        url = nominatim + "?format=json&q=" + encodeURIComponent(locCoord.input)
         +"&limit=3&json_callback=search_callback" + getInfoTmpCounter;
         if(bounds.initialized) {
             // minLon, minLat, maxLon, maxLat => left, top, right, bottom
@@ -240,11 +248,12 @@ function getInfoFromLocation(locCoord) {
         }
         locCoord.name = "Error while looking up area description";
         return $.ajax({
-            "url": url,            
-            "type" : "GET",
-            "dataType": "jsonp",
-            "jsonpCallback": 'search_callback' + getInfoTmpCounter
-        }).pipe(function(jsonArgs) {
+            url: url,
+            type : "GET",
+            dataType: "jsonp",
+            timeout: 3000,
+            jsonpCallback: 'search_callback' + getInfoTmpCounter
+        }).fail(errCallback).pipe(function(jsonArgs) {
             var json = jsonArgs[0];
             if(!json) {
                 locCoord.name = "No area description found";                
