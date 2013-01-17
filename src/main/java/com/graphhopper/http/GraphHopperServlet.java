@@ -61,7 +61,7 @@ public class GraphHopperServlet extends HttpServlet {
     }
 
     void writeBounds(HttpServletRequest req, HttpServletResponse res) throws JSONException {
-        BBox bb = hopper.getGraph().getBounds();
+        BBox bb = hopper.getGraph().bounds();
         List<Double> list = new ArrayList<Double>(4);
         list.add(bb.minLon);
         list.add(bb.minLat);
