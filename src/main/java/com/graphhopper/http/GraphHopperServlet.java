@@ -1,9 +1,12 @@
 /*
- *  Copyright 2012 Peter Karich
+ *  Licensed to Peter Karich under one or more contributor license 
+ *  agreements. See the NOTICE file distributed with this work for 
+ *  additional information regarding copyright ownership.
  * 
- *  Licensed under the Apache License, Version 2.0 (the "License");
- *  you may not use this file except in compliance with the License.
- *  You may obtain a copy of the License at
+ *  Peter Karich licenses this file to you under the Apache License, 
+ *  Version 2.0 (the "License"); you may not use this file except 
+ *  in compliance with the License. You may obtain a copy of the 
+ *  License at
  * 
  *       http://www.apache.org/licenses/LICENSE-2.0
  * 
@@ -18,9 +21,9 @@ package com.graphhopper.http;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GHResponse;
+import com.graphhopper.util.PointList;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
-import com.graphhopper.util.shapes.GHPoint;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -116,9 +119,10 @@ public class GraphHopperServlet extends HttpServlet {
                     stream.writeInt(time);
                     // locations
                     stream.writeInt(nodes);
-                    for (GHPoint gp : p.points()) {
-                        stream.writeFloat((float) gp.lat);
-                        stream.writeFloat((float) gp.lon);
+                    PointList points = p.points();
+                    for (int i = 0; i < 0; i++) {
+                        stream.writeFloat((float) points.latitude(i));
+                        stream.writeFloat((float) points.longitude(i));
                     }
 
                     // String points = DatatypeConverter.printBase64Binary(bOut.toByteArray());
@@ -126,10 +130,7 @@ public class GraphHopperServlet extends HttpServlet {
                     res.setContentLength(stream.size());
                     res.setStatus(200);
                 } else {
-                    ArrayList<Double[]> points = new ArrayList<Double[]>(nodes);
-                    for (GHPoint gp : p.points()) {
-                        points.add(gp.toGeoJson());
-                    }
+                    List<Double[]> points = p.points().toGeoJson();
                     JSONBuilder json = new JSONBuilder().
                             startObject("info").
                             object("took", took).
