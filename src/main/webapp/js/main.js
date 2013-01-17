@@ -33,10 +33,10 @@ var iconFrom = L.icon({
 });
 var bounds = {};
 // local development
-//var host = "http://localhost:8989";
+var host = "http://localhost:8989";
 
 // cross origin:
-var host = "http://217.92.216.224:8080";
+//var host = "http://217.92.216.224:8080";
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
@@ -356,7 +356,7 @@ function doRequest(from, to, callback) {
                 
                 var i = 0;                
                 var magix = dv.getInt32(i);
-                if(magix != 123456) {
+                if(magix != 123457) {
                     json.info.routeNotFound = true;
                     callback(json);                    
                     return;
@@ -368,19 +368,20 @@ function doRequest(from, to, callback) {
                 i += 4;
                 json.route.time = dv.getInt32(i);
                 i += 4;
-                var locations = dv.getInt32(i);
-                var tmpArray = [];
-                json.route.data = {
-                    "type" : "LineString",
-                    "coordinates": tmpArray
-                };
-                for(var index = 0; index < locations; index ++) {
+                var points = dv.getInt32(i);
+                var tmpArray = [];                
+                for(var index = 0; index < points; index ++) {
                     i += 4;
                     var lat = dv.getFloat32(i);
                     i += 4;
                     var lng = dv.getFloat32(i);
+                    // geojson
                     tmpArray.push([lng, lat]);
                 }            
+                json.route.data = {
+                    "type" : "LineString",
+                    "coordinates": tmpArray
+                };
                 callback(json);
             } else
                 errCallback(e);

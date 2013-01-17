@@ -96,7 +96,8 @@ public class GraphHopperServlet extends HttpServlet {
                         .minPathPrecision(minPathPrecision));
                 float took = sw.stop().getSeconds();
                 String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
-                int nodes = p.points().size();
+                PointList points = p.points();                
+                int pointNum = points.size();
                 if (p.found()) {
                     infoStr += " path found";
                 } else
@@ -106,21 +107,21 @@ public class GraphHopperServlet extends HttpServlet {
                 int time = Math.round(p.time() / 60f);
                 String type = getParam(req, "type");
                 if ("bin".equals(type)) {
+                    infoStr += " (bin mode)";
                     // for type=bin we cannot do jsonp so do:
                     res.setHeader("Access-Control-Allow-Origin", "*");
                     DataOutputStream stream = new DataOutputStream(res.getOutputStream());
                     // write magix number
-                    stream.writeInt(123456);
+                    stream.writeInt(123457);
                     // took
                     stream.writeFloat(took);
                     // distance
                     stream.writeFloat((float) dist);
                     // time
                     stream.writeInt(time);
-                    // locations
-                    stream.writeInt(nodes);
-                    PointList points = p.points();
-                    for (int i = 0; i < 0; i++) {
+                    // points
+                    stream.writeInt(pointNum);
+                    for (int i = 0; i < points.size(); i++) {
                         stream.writeFloat((float) points.latitude(i));
                         stream.writeFloat((float) points.longitude(i));
                     }
@@ -130,7 +131,7 @@ public class GraphHopperServlet extends HttpServlet {
                     res.setContentLength(stream.size());
                     res.setStatus(200);
                 } else {
-                    List<Double[]> points = p.points().toGeoJson();
+                    List<Double[]> geoPoints = points.toGeoJson();
                     JSONBuilder json = new JSONBuilder().
                             startObject("info").
                             object("took", took).
@@ -142,7 +143,7 @@ public class GraphHopperServlet extends HttpServlet {
                             object("time", time).
                             startObject("data").
                             object("type", "LineString").
-                            object("coordinates", points).
+                            object("coordinates", geoPoints).
                             endObject().
                             endObject();
 
@@ -150,7 +151,7 @@ public class GraphHopperServlet extends HttpServlet {
                 }
 
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
-                        + ", distance: " + dist + ", time:" + time + "min, nodes:" + nodes
+                        + ", distance: " + dist + ", time:" + time + "min, points:" + points.size()
                         + ", took:" + took);
             } catch (Exception ex) {
                 logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
