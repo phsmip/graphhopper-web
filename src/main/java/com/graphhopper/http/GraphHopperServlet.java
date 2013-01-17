@@ -90,13 +90,16 @@ public class GraphHopperServlet extends HttpServlet {
             } catch (Exception ex) {
             }
             try {
+                if (minPathPrecision <= 0)
+                    hopper.simplify(false);
+
                 StopWatch sw = new StopWatch().start();
-                GHResponse p = hopper.route(new GHRequest(fromLat, fromLon, toLat, toLon)
-                        .algorithm("dijkstrabi")
-                        .minPathPrecision(minPathPrecision));
+                GHResponse p = hopper.route(new GHRequest(fromLat, fromLon, toLat, toLon).
+                        algorithm("dijkstrabi").
+                        minPathPrecision(minPathPrecision));
                 float took = sw.stop().getSeconds();
                 String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
-                PointList points = p.points();                
+                PointList points = p.points();
                 int pointNum = points.size();
                 if (p.found()) {
                     infoStr += " path found";
@@ -121,9 +124,10 @@ public class GraphHopperServlet extends HttpServlet {
                     stream.writeInt(time);
                     // points
                     stream.writeInt(pointNum);
-                    for (int i = 0; i < points.size(); i++) {
-                        stream.writeFloat((float) points.latitude(i));
+                    // stay consistent with json type and use geoJson order lon,lat
+                    for (int i = 0; i < pointNum; i++) {
                         stream.writeFloat((float) points.longitude(i));
+                        stream.writeFloat((float) points.latitude(i));
                     }
 
                     // String points = DatatypeConverter.printBase64Binary(bOut.toByteArray());

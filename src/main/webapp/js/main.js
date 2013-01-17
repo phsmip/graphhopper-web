@@ -8,12 +8,14 @@ var nominatim_reverse = "http://open.mapquestapi.com/nominatim/v1/reverse.php";
 var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
-var errCallback = function(err) {
-    if(err.statusText == "timeout")
-        alert("Timeout reached");    
+function createCallback(errStr) {
+    return function(err) {
+        if(errStr) 
+            alert(errStr);    
     
-    console.log(err); // console.log("error:"+ err.statusText + ", " + err.responseText);
-};
+        console.log(err); // console.log("error:"+ err.statusText + ", " + err.responseText);
+    };
+}
 var minPathPrecision = 1;
 var fromCoord = {
     input: "", 
@@ -222,7 +224,8 @@ function getInfoFromLocation(locCoord) {
             dataType: "jsonp",
             timeout: 3000,
             jsonpCallback: 'reverse_callback' + getInfoTmpCounter            
-        }).fail(errCallback).pipe(function(json) {
+        }).fail(createCallback("[nominatim] Problem while looking up coodinate " + locCoord.lat + "," + locCoord.lng)).
+            pipe(function(json) {
             if(!json) {
                 locCoord.name = "No description found for coordinate";
                 return [locCoord];
@@ -253,7 +256,8 @@ function getInfoFromLocation(locCoord) {
             dataType: "jsonp",
             timeout: 3000,
             jsonpCallback: 'search_callback' + getInfoTmpCounter
-        }).fail(errCallback).pipe(function(jsonArgs) {
+        }).fail(createCallback("[nominatim] Problem while looking up location " + locCoord.input)).
+            pipe(function(jsonArgs) {
             var json = jsonArgs[0];
             if(!json) {
                 locCoord.name = "No area description found";                
@@ -369,13 +373,13 @@ function doRequest(from, to, callback) {
                 json.route.time = dv.getInt32(i);
                 i += 4;
                 var points = dv.getInt32(i);
-                var tmpArray = [];                
+                var tmpArray = [];             
+                // the new API returns geoJson order - consitent with json type
                 for(var index = 0; index < points; index ++) {
                     i += 4;
-                    var lat = dv.getFloat32(i);
-                    i += 4;
                     var lng = dv.getFloat32(i);
-                    // geojson
+                    i += 4;
+                    var lat = dv.getFloat32(i);                    
                     tmpArray.push([lng, lat]);
                 }            
                 json.route.data = {
@@ -384,18 +388,18 @@ function doRequest(from, to, callback) {
                 };
                 callback(json);
             } else
-                errCallback(e);
+                createCallback("[graphhopper] server did not properly respond to binary request")(e);
         };
         xhr.send();
     } else {
-        $("#warn").html('Slowish data retrieval as ArrayBuffer/DataView is unsupported in your browser.');
+        $("#warn").html('Data retrieval probably slow as ArrayBuffer/DataView is unsupported in your browser.');
         // TODO use base64 and binary representation of points to reduce downloading
         // or is it sufficient with our recently added gzip compression?
         url = host + "/api" + demoUrl + "&type=jsonp"; // &debug=true
         $.ajax({
             "url" : url,
             "success": callback,
-            "error" : errCallback,
+            "error" : createCallback("[graphhopper] server did not respond to json request"),
             "type" : "GET",
             "dataType": "jsonp"
         });        
