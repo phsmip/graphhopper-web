@@ -40,6 +40,10 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Servlet to use GraphHopper in a remote application (mobile or browser).
+ * Attention: If type is json it returns the points in GeoJson format
+ * (longitude,latitude) unlike the format "lat,lon" used otherwise.
+ *
  * @author Peter Karich
  */
 public class GraphHopperServlet extends HttpServlet {
@@ -95,7 +99,7 @@ public class GraphHopperServlet extends HttpServlet {
 
                 StopWatch sw = new StopWatch().start();
                 GHResponse p = hopper.route(new GHRequest(fromLat, fromLon, toLat, toLon).
-                        algorithm("dijkstrabi").
+                        algorithm("astarbi").
                         minPathPrecision(minPathPrecision));
                 float took = sw.stop().getSeconds();
                 String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
@@ -123,11 +127,10 @@ public class GraphHopperServlet extends HttpServlet {
                     // time
                     stream.writeInt(time);
                     // points
-                    stream.writeInt(pointNum);
-                    // stay consistent with json type and use geoJson order lon,lat
+                    stream.writeInt(pointNum);                    
                     for (int i = 0; i < pointNum; i++) {
-                        stream.writeFloat((float) points.longitude(i));
                         stream.writeFloat((float) points.latitude(i));
+                        stream.writeFloat((float) points.longitude(i));
                     }
 
                     // String points = DatatypeConverter.printBase64Binary(bOut.toByteArray());
@@ -156,7 +159,7 @@ public class GraphHopperServlet extends HttpServlet {
 
                 logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
                         + ", distance: " + dist + ", time:" + time + "min, points:" + points.size()
-                        + ", took:" + took);
+                        + ", took:" + took + ", debug - " + p.debugInfo());
             } catch (Exception ex) {
                 logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
                 writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());

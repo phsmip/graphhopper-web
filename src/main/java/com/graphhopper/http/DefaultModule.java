@@ -42,8 +42,9 @@ public class DefaultModule extends AbstractModule {
 
             try {
                 String ghLocation = args.get("graphhopperweb.graph-location", "");
-                GraphHopper hopper = new GraphHopper().setGraphHopperLocation(ghLocation);
-                hopper.contractionHierarchies(true);
+                GraphHopper hopper = new GraphHopper().graphHopperLocation(ghLocation);
+                if (args.getBool("graphhopperweb.contractionHierarchies", false))
+                    hopper.contractionHierarchies(true);
                 hopper.forServer().load(osmFile);
                 bind(GraphHopper.class).toInstance(hopper);
             } catch (Exception ex) {

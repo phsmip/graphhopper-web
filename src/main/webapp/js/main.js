@@ -374,12 +374,12 @@ function doRequest(from, to, callback) {
                 i += 4;
                 var points = dv.getInt32(i);
                 var tmpArray = [];             
-                // the new API returns geoJson order - consitent with json type
+                // GraphHopper uses lat,lon (except and only for json type)!
                 for(var index = 0; index < points; index ++) {
                     i += 4;
-                    var lng = dv.getFloat32(i);
+                    var lat = dv.getFloat32(i);
                     i += 4;
-                    var lat = dv.getFloat32(i);                    
+                    var lng = dv.getFloat32(i);                    
                     tmpArray.push([lng, lat]);
                 }            
                 json.route.data = {
