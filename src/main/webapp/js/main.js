@@ -34,11 +34,15 @@ var iconFrom = L.icon({
     iconAnchor: [10, 16]
 });
 var bounds = {};
-// local development
-var host = "http://localhost:8989";
 
-// cross origin:
-//var host = "http://217.92.216.224:8080";
+LOCAL=true;
+var host;
+if(LOCAL)
+    host = "http://localhost:8989";
+else {
+    // cross origin:
+    host = "http://217.92.216.224:8080";
+}
 
 $(document).ready(function(e) {
     // I'm really angry about you history.js :/ (triggering double events) ... but let us just use the url rewriting thing
@@ -225,7 +229,7 @@ function getInfoFromLocation(locCoord) {
             timeout: 3000,
             jsonpCallback: 'reverse_callback' + getInfoTmpCounter            
         }).fail(createCallback("[nominatim] Problem while looking up coodinate " + locCoord.lat + "," + locCoord.lng)).
-            pipe(function(json) {
+        pipe(function(json) {
             if(!json) {
                 locCoord.name = "No description found for coordinate";
                 return [locCoord];
@@ -257,7 +261,7 @@ function getInfoFromLocation(locCoord) {
             timeout: 3000,
             jsonpCallback: 'search_callback' + getInfoTmpCounter
         }).fail(createCallback("[nominatim] Problem while looking up location " + locCoord.input)).
-            pipe(function(jsonArgs) {
+        pipe(function(jsonArgs) {
             var json = jsonArgs[0];
             if(!json) {
                 locCoord.name = "No area description found";                
@@ -422,7 +426,7 @@ function requestBounds() {
             bounds.maxLat = tmp[3];
         },
         "error" : function(e) {
-            $('#warn').html('GraphHopper API offline?');
+            $('#warn').html('GraphHopper API offline? ' + host);
         },
         "timeout" : 3000,
         "type" : "GET",

@@ -29,6 +29,7 @@ import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
 import javax.inject.Inject;
+import javax.inject.Named;
 import javax.servlet.ServletException;
 import javax.servlet.http.HttpServlet;
 import javax.servlet.http.HttpServletRequest;
@@ -50,6 +51,10 @@ public class GraphHopperServlet extends HttpServlet {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
     @Inject private GraphHopper hopper;
+    @Inject
+    @Named("defaultAlgorithm")
+    private String defaultAlgorithm;
+    
 
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -99,7 +104,7 @@ public class GraphHopperServlet extends HttpServlet {
 
                 StopWatch sw = new StopWatch().start();
                 GHResponse p = hopper.route(new GHRequest(fromLat, fromLon, toLat, toLon).
-                        algorithm("astarbi").
+                        algorithm(defaultAlgorithm).
                         minPathPrecision(minPathPrecision));
                 float took = sw.stop().getSeconds();
                 String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");

@@ -19,6 +19,7 @@
 package com.graphhopper.http;
 
 import com.google.inject.AbstractModule;
+import com.google.inject.name.Names;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.util.CmdArgs;
 import java.io.IOException;
@@ -43,10 +44,13 @@ public class DefaultModule extends AbstractModule {
             try {
                 String ghLocation = args.get("graphhopperweb.graph-location", "");
                 GraphHopper hopper = new GraphHopper().graphHopperLocation(ghLocation);
-                if (args.getBool("graphhopperweb.contractionHierarchies", false))
+                if (args.getBool("graphhopperweb.fastRouting", false))
                     hopper.contractionHierarchies(true);
                 hopper.forServer().load(osmFile);
                 bind(GraphHopper.class).toInstance(hopper);
+                
+                String algo = args.get("graphhopperweb.defaultAlgorithm", "dijkstrabi");
+                bind(String.class).annotatedWith(Names.named("defaultAlgorithm")).toInstance(algo);
             } catch (Exception ex) {
                 throw new IllegalStateException("Couldn't load graph", ex);
             }
