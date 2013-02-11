@@ -28,6 +28,8 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 /**
+ * Just to check if response is really gzipped
+ *
  * @author Peter Karich
  */
 public class MyGZIPHook extends GzipFilter {

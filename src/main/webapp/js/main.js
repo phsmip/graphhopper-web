@@ -6,12 +6,12 @@ var map;
 var browserTitle = "GraphHopper Web Demo";
 function createCallback(errorFallback) {
     return function(err) {
-        if(err.statusText)
+        if(err.statusText && err.statusText != "OK")
             alert(err.statusText);
         else
             alert(errorFallback);
     
-        console.log(err); // console.log("error:"+ err.statusText + ", " + err.responseText);
+        console.log(errorFallback + " " +JSON.stringify(err));
     };
 }
 var minPathPrecision = 1;
@@ -104,13 +104,6 @@ function initMap() {
     }).addTo(map); 
     
     routingLayer = L.geoJson().addTo(map);
-    // boundsLayer.addData(geojsonFeature);  
-    
-    // limit area to underlying routing graph bounds!
-    // not user friendly as zoom level cannot be increased like one wants
-    //    map.setMaxBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), 
-    //        new L.LatLng(bounds.maxLat, bounds.maxLon)));
-    
     var routeNow = true;    
     function onMapClick(e) {        
         routeNow = !routeNow;
@@ -183,13 +176,8 @@ function routeLatLng(fromPoint, toPoint) {
     var distDiv = $("<div/>");
     $("#info").append(distDiv);
     
-    var from = toStr(fromPoint);
-    var to = toStr(toPoint);
-    //    if(from.indexOf('undefined') >= 0 || to.indexOf('undefined') >= 0) {
-    //        distDiv.html('<small>routing not possible. location(s) not found in the area</small>');
-    //        return;
-    //    }
-    // do not overwrite input text!
+    var from = fromPoint.input;
+    var to = toPoint.input;
     var historyUrl = "?point=" + fromPoint.input + "&point=" + toPoint.input;
     if(minPathPrecision != 1)
         historyUrl += "&minPathPrecision=" + minPathPrecision;
@@ -232,9 +220,10 @@ function routeLatLng(fromPoint, toPoint) {
             + "s</small><br/>"
             + "points: " + json.route.data.coordinates.length); 
         $("#info").append(distDiv);
-        var osrmLink = $("<a>OSRM</a> ");
-        osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
-        $("#info").append(osrmLink);
+        // OSRM always needs gps coordinates
+//        var osrmLink = $("<a>OSRM</a> ");
+//        osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
+//        $("#info").append(osrmLink);
         var googleLink = $("<a>Google</a> ");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + from + "+to:" + to);
         $("#info").append(googleLink);
@@ -247,93 +236,75 @@ function routeLatLng(fromPoint, toPoint) {
     });
 }
 
-function doRequest(demoUrl, callback) {        
-    var url;
-    var arrayBufferSupported = typeof new XMLHttpRequest().responseType === 'string' 
-    && typeof DataView === 'function';
-
-    if(arrayBufferSupported) {
-        // we need a very efficient way to get the probably huge number of points
-        url = host + "/api" + demoUrl + "&type=bin";             
-        var xhr = new XMLHttpRequest();
-        xhr.open('GET', url, true);
-        xhr.responseType = 'arraybuffer';
-        xhr.onload = function(err) {
-            if (this.status == 200) {
-                var dv = new DataView(this.response);
-                var json = {
-                    "info" : {
-                        "took" : 0
-                    },
-                    "route": {
-                        "time": 0, 
-                        "distance": 0, 
-                        "data" : {}
-                    }
-                };
-                
-                var i = 0;                
-                var magix = dv.getInt32(i);
-                if(magix != 123458) {
-                    console.log("wrong api version " + magix);
-                    json.info.wrongApiVersion = true;
-                    callback(json);                    
-                    return;
-                }
-                i += 4;
-                json.info.took = dv.getFloat32(i);                
-                i += 4;
-                json.info.tookGeocoding = dv.getFloat32(i);                
-                i += 4;
-                json.route.distance = dv.getFloat32(i);
-                i += 4;
-                json.route.time = dv.getInt32(i);
-                i += 4;
-                var points = dv.getInt32(i);
-                if(points < 2) {
-                    json.info.routeNotFound = true;
-                    callback(json);
-                    return;
-                }
-                    
-                var tmpArray = [];             
-                // GraphHopper uses lat,lon (except and only for json type)!
-                for(var index = 0; index < points; index ++) {
-                    i += 4;
-                    var lat = dv.getFloat32(i);
-                    i += 4;
-                    var lng = dv.getFloat32(i);                    
-                    tmpArray.push([lng, lat]);
-                }            
+function doRequest(demoUrl, callback) {
+    var encodedPolyline = false;
+    var debug = false
+    var url = host + "/api" + demoUrl + "&type=jsonp";
+    if(encodedPolyline)
+        url += "&encodedPolyline=true";    
+    if(debug)
+        url += "&debug=true";
+    $.ajax({
+        "url" : url,
+        "success": function(json) {
+            // convert encoded polyline stuff to normal json
+            if(encodedPolyline) {
+                var tmpArray = decodePath(json.route.coordinates, true);                
+                json.route.coordinates = null;
                 json.route.data = {
                     "type" : "LineString",
                     "coordinates": tmpArray
                 };
-                callback(json);
-            } else
-                createCallback("Error while binary request")(this);
-        };
-        xhr.send();
-    } else {
-        $("#warn").html('Data retrieval probably slow as ArrayBuffer/DataView is unsupported in your browser.');
-        // TODO use base64 and binary representation of points to reduce downloading
-        // or is it sufficient with our recently added gzip compression?
-        url = host + "/api" + demoUrl + "&type=jsonp"; // &debug=true
-        $.ajax({
-            "url" : url,
-            "success": callback,
-            "error" : createCallback("Error while json request"),
-            "type" : "GET",
-            "dataType": "jsonp"
-        });        
-    }
-    
-    console.log(url);    
+            }
+            callback(json);
+        },
+        "error" : createCallback("Error while request"),
+        "type" : "GET",
+        "dataType": "jsonp"
+    });
 }
+
+function decodePath(encoded, geoJson) {
+    var len = encoded.length;
+    var index = 0;
+    var array = [];
+    var lat = 0;
+    var lng = 0;
+
+    while (index < len) {
+        var b;
+        var shift = 0;
+        var result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        var deltaLat = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lat += deltaLat;
+
+        shift = 0;
+        result = 0;
+        do {
+            b = encoded.charCodeAt(index++) - 63;
+            result |= (b & 0x1f) << shift;
+            shift += 5;
+        } while (b >= 0x20);
+        var deltaLon = ((result & 1) ? ~(result >> 1) : (result >> 1));
+        lng += deltaLon;
+
+        if(geoJson)
+            array.push([lng * 1e-5, lat * 1e-5]);
+        else
+            array.push([lat * 1e-5, lng * 1e-5]);
+    }
+
+    return array;
+}
+
 
 function requestBounds() {
     var url = host + "/api/bounds?type=jsonp";
-    console.log(url);    
     return $.ajax({
         "url": url,
         "success": function(json) {
@@ -404,7 +375,7 @@ function initForm() {
     });
     
     // if FROM will be submitted
-    $('#fromInput').keypress(function(e) {
+    $('#fromInput').keyup(function(e) {
         if(e.which == 10 || e.which == 13) {
             var to = $("#toInput").val();
             // do not resolve 'to'
@@ -414,7 +385,7 @@ function initForm() {
     });
     
     // if TO will be submitted
-    $('#toInput').keypress(function(e) {
+    $('#toInput').keyup(function(e) {
         if(e.which == 10 || e.which == 13) {
             var from = $("#fromInput").val();
             // do not resolve from

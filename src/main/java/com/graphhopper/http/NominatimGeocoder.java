@@ -53,7 +53,7 @@ public class NominatimGeocoder implements Geocoding {
         List<GHInfoPoint> resList = new ArrayList<GHInfoPoint>();
         for (String place : places) {
             // see https://trac.openstreetmap.org/ticket/4683 why limit=3 and not 1
-            String url = nominatimUrl + "?format=json&q=" + WebHelper.urlEncode(place) + "&limit=3";
+            String url = nominatimUrl + "?format=json&q=" + WebHelper.encodeURL(place) + "&limit=3";
             if (bounds != null) {
                 // minLon, minLat, maxLon, maxLat => left, top, right, bottom
                 url += "&bounded=1&viewbox=" + bounds.minLon + "," + bounds.maxLat + "," + bounds.maxLon + "," + bounds.minLat;
@@ -61,7 +61,7 @@ public class NominatimGeocoder implements Geocoding {
 
             try {
                 HttpURLConnection hConn = openConnection(url);
-                String str = WebHelper.readString(hConn.getInputStream(), "UTF-8");
+                String str = WebHelper.readString(hConn.getInputStream());
                 // System.out.println(str);
                 // TODO sort returned objects by bounding box area size?
                 JSONObject json = new JSONArray(str).getJSONObject(0);
@@ -84,7 +84,7 @@ public class NominatimGeocoder implements Geocoding {
                 String url = nominatimReverseUrl + "?lat=" + point.lat + "&lon=" + point.lon
                         + "&format=json&zoom=16";
                 HttpURLConnection hConn = openConnection(url);
-                String str = WebHelper.readString(hConn.getInputStream(), "UTF-8");
+                String str = WebHelper.readString(hConn.getInputStream());
                 // System.out.println(str);
                 JSONObject json = new JSONObject(str);
                 double lat = json.getDouble("lat");

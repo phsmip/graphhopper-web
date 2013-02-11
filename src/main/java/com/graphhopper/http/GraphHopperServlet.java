@@ -28,7 +28,6 @@ import com.graphhopper.util.PointList;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
 import com.graphhopper.util.shapes.GHPoint;
-import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -90,96 +89,65 @@ public class GraphHopperServlet extends HttpServlet {
     }
 
     void writePath(HttpServletRequest req, HttpServletResponse res) throws Exception {
+        StopWatch sw = new StopWatch().start();
+        List<GHInfoPoint> infoPoints = getPoints(req);
+        float tookGeocoding = sw.stop().getSeconds();
+        GHPoint start = infoPoints.get(0);
+        GHPoint end = infoPoints.get(1);
+        // we can reduce the path length based on the maximum differences to the original coordinates
+        double minPathPrecision = 1;
         try {
-            StopWatch sw = new StopWatch().start();
-            List<GHInfoPoint> infoPoints = getPoints(req);
-            float tookGeocoding = sw.stop().getSeconds();
-            GHPoint start = infoPoints.get(0);
-            GHPoint end = infoPoints.get(1);
-            // we can reduce the path length based on the maximum differences to the original coordinates
-            double minPathPrecision = 1;
-            try {
-                minPathPrecision = Double.parseDouble(getParam(req, "minPathPrecision"));
-            } catch (Exception ex) {
+            minPathPrecision = Double.parseDouble(getParam(req, "minPathPrecision"));
+        } catch (Exception ex) {
+        }
+        try {
+            if (minPathPrecision <= 0)
+                hopper.simplify(false);
+
+            sw = new StopWatch().start();
+            GHResponse p = hopper.route(new GHRequest(start, end).
+                    algorithm(defaultAlgorithm).
+                    minPathPrecision(minPathPrecision));
+            float took = sw.stop().getSeconds();
+            String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
+            PointList points = p.points();
+            if (p.found()) {
+                infoStr += " path found";
+            } else
+                infoStr += " NO path found";
+
+            double distInKM = p.distance() / 1000;
+            int timeInMinutes = Math.round(p.time() / 60f);
+            String encodedParam = getParam(req, "encodedPolyline");
+
+            JSONBuilder builder = new JSONBuilder().
+                    startObject("info").
+                    object("took", took).
+                    object("tookGeocoding", tookGeocoding).
+                    endObject();
+            builder = builder.startObject("route").
+                    object("from", new Double[]{start.lon, start.lat}).
+                    object("to", new Double[]{end.lon, end.lat}).
+                    object("distance", distInKM).
+                    object("time", timeInMinutes);
+            if ("true".equals(encodedParam)) {
+                String encodedPolyline = WebHelper.encodePolyline(points);
+                builder.object("coordinates", encodedPolyline);
+            } else {
+                builder.startObject("data").
+                        object("type", "LineString").
+                        object("coordinates", points.toGeoJson()).
+                        endObject();
             }
-            try {
-                if (minPathPrecision <= 0)
-                    hopper.simplify(false);
+            builder = builder.endObject();
 
-                sw = new StopWatch().start();
-                GHResponse p = hopper.route(new GHRequest(start, end).
-                        algorithm(defaultAlgorithm).
-                        minPathPrecision(minPathPrecision));
-                float took = sw.stop().getSeconds();
-                String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
-                PointList points = p.points();
-                int pointNum = points.size();
-                if (p.found()) {
-                    infoStr += " path found";
-                } else
-                    infoStr += " NO path found";
-
-                double dist = p.distance() / 1000;
-                int time = Math.round(p.time() / 60f);
-                String type = getParam(req, "type");
-                if ("bin".equals(type)) {
-                    infoStr += " (bin mode)";
-                    // for type=bin we cannot do jsonp so do:
-                    res.setHeader("Access-Control-Allow-Origin", "*");
-                    DataOutputStream stream = new DataOutputStream(res.getOutputStream());
-                    // write magix number
-                    stream.writeInt(123458);
-                    // took
-                    stream.writeFloat(took);
-                    // took geocoding
-                    stream.writeFloat(tookGeocoding);
-                    // distance
-                    stream.writeFloat((float) dist);
-                    // time
-                    stream.writeInt(time);
-                    // points
-                    stream.writeInt(pointNum);
-                    for (int i = 0; i < pointNum; i++) {
-                        stream.writeFloat((float) points.latitude(i));
-                        stream.writeFloat((float) points.longitude(i));
-                    }
-
-                    // String points = DatatypeConverter.printBase64Binary(bOut.toByteArray());
-                    res.setContentType("arraybuffer");
-                    res.setContentLength(stream.size());
-                    res.setStatus(200);
-                } else {
-                    List<Double[]> geoPoints = points.toGeoJson();
-                    JSONBuilder json = new JSONBuilder().
-                            startObject("info").
-                            object("took", took).
-                            object("tookGeocoding", tookGeocoding).
-                            endObject().
-                            startObject("route").
-                            object("from", new Double[]{start.lon, start.lat}).
-                            object("to", new Double[]{end.lon, end.lat}).
-                            object("distance", dist).
-                            object("time", time).
-                            startObject("data").
-                            object("type", "LineString").
-                            object("coordinates", geoPoints).
-                            endObject().
-                            endObject();
-
-                    writeJson(req, res, json.build());
-                }
-
-                logger.info(infoStr + " " + start + "->" + end
-                        + ", distance: " + dist + ", time:" + time + "min, points:" + points.size()
-                        + ", took:" + took + ", debug - " + p.debugInfo());
-            } catch (Exception ex) {
-                logger.error("Error while query:" + start + "->" + end, ex);
-                writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
-            }
-        } catch (NumberFormatException ex) {
-            JSONBuilder json = new JSONBuilder().object("error",
-                    "Problem while parsing 'from' or 'to' parameter:" + ex.getMessage());
-            writeResponse(res, json.build().toString(2));
+            writeJson(req, res, builder.build());
+            logger.info(req.getQueryString() + " " + infoStr + " " + start + "->" + end
+                    + ", distance: " + distInKM + ", time:" + timeInMinutes + "min, points:" + points.size()
+                    + ", took:" + took + ", debug - " + p.debugInfo());
+        } catch (Exception ex) {
+            logger.error("Error while query:" + start + "->" + end, ex);
+            writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
         }
     }
 
@@ -216,6 +184,7 @@ public class GraphHopperServlet extends HttpServlet {
 
     private void writeJson(HttpServletRequest req, HttpServletResponse res, JSONObject json) throws JSONException {
         String type = getParam(req, "type");
+        res.setCharacterEncoding("UTF-8");
         if ("jsonp".equals(type)) {
             res.setContentType("application/javascript");
             String callbackName = getParam(req, "callback");
