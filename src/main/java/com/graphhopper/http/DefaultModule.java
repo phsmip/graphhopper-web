@@ -18,6 +18,7 @@
  */
 package com.graphhopper.http;
 
+import com.graphhopper.search.Geocoding;
 import com.google.inject.AbstractModule;
 import com.google.inject.name.Names;
 import com.graphhopper.GraphHopper;
@@ -48,9 +49,14 @@ public class DefaultModule extends AbstractModule {
                     hopper.contractionHierarchies(true);
                 hopper.forServer().load(osmFile);
                 bind(GraphHopper.class).toInstance(hopper);
-                
+
                 String algo = args.get("graphhopperweb.defaultAlgorithm", "dijkstrabi");
-                bind(String.class).annotatedWith(Names.named("defaultAlgorithm")).toInstance(algo);
+                bind(String.class).annotatedWith(Names.named("defaultalgorithm")).toInstance(algo);
+
+                long timeout = args.getLong("graphhopperweb.timeout", 3000);
+                bind(Long.class).annotatedWith(Names.named("timeout")).toInstance(timeout);
+                bind(Geocoding.class).toInstance(new NominatimGeocoder().timeout((int) timeout).bounds(hopper.getGraph().bounds()));
+                bind(GHThreadPool.class).toInstance(new GHThreadPool(1000, 50).startService());
             } catch (Exception ex) {
                 throw new IllegalStateException("Couldn't load graph", ex);
             }

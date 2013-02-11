@@ -18,12 +18,16 @@
  */
 package com.graphhopper.http;
 
+import com.graphhopper.search.Geocoding;
+import com.graphhopper.util.shapes.GHInfoPoint;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GHResponse;
+import com.graphhopper.util.Helper;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
+import com.graphhopper.util.shapes.GHPoint;
 import java.io.DataOutputStream;
 import java.io.IOException;
 import java.util.ArrayList;
@@ -51,10 +55,15 @@ public class GraphHopperServlet extends HttpServlet {
 
     private Logger logger = LoggerFactory.getLogger(getClass());
     @Inject private GraphHopper hopper;
+    @Inject private Geocoding geocoding;
     @Inject
-    @Named("defaultAlgorithm")
+    @Named("defaultalgorithm")
     private String defaultAlgorithm;
-    
+    @Inject
+    @Named("timeout")
+    private Long timeOutInMillis;
+    @Inject
+    private GHThreadPool threadPool;
 
     @Override
     public void doGet(HttpServletRequest req, HttpServletResponse res) throws ServletException, IOException {
@@ -63,8 +72,8 @@ public class GraphHopperServlet extends HttpServlet {
                 writeBounds(req, res);
             else
                 writePath(req, res);
-        } catch (JSONException ex) {
-            logger.error("Error while returning bounds", ex);
+        } catch (Exception ex) {
+            logger.error("Error while executing request: " + req.getQueryString(), ex);
             writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
         }
     }
@@ -80,19 +89,14 @@ public class GraphHopperServlet extends HttpServlet {
         writeJson(req, res, json.build());
     }
 
-    void writePath(HttpServletRequest req, HttpServletResponse res) throws JSONException {
+    void writePath(HttpServletRequest req, HttpServletResponse res) throws Exception {
         try {
-            String fromParam = getParam(req, "from");
-            String[] fromStrs = fromParam.split(",");
-            double fromLat = Double.parseDouble(fromStrs[0]);
-            double fromLon = Double.parseDouble(fromStrs[1]);
-
-            String toParam = getParam(req, "to");
-            String[] toStrs = toParam.split(",");
-            double toLat = Double.parseDouble(toStrs[0]);
-            double toLon = Double.parseDouble(toStrs[1]);
-
-            // we can reduce the path length based on the maximum distance moving away from the original coordinates
+            StopWatch sw = new StopWatch().start();
+            List<GHInfoPoint> infoPoints = getPoints(req);
+            float tookGeocoding = sw.stop().getSeconds();
+            GHPoint start = infoPoints.get(0);
+            GHPoint end = infoPoints.get(1);
+            // we can reduce the path length based on the maximum differences to the original coordinates
             double minPathPrecision = 1;
             try {
                 minPathPrecision = Double.parseDouble(getParam(req, "minPathPrecision"));
@@ -102,8 +106,8 @@ public class GraphHopperServlet extends HttpServlet {
                 if (minPathPrecision <= 0)
                     hopper.simplify(false);
 
-                StopWatch sw = new StopWatch().start();
-                GHResponse p = hopper.route(new GHRequest(fromLat, fromLon, toLat, toLon).
+                sw = new StopWatch().start();
+                GHResponse p = hopper.route(new GHRequest(start, end).
                         algorithm(defaultAlgorithm).
                         minPathPrecision(minPathPrecision));
                 float took = sw.stop().getSeconds();
@@ -124,15 +128,17 @@ public class GraphHopperServlet extends HttpServlet {
                     res.setHeader("Access-Control-Allow-Origin", "*");
                     DataOutputStream stream = new DataOutputStream(res.getOutputStream());
                     // write magix number
-                    stream.writeInt(123457);
+                    stream.writeInt(123458);
                     // took
                     stream.writeFloat(took);
+                    // took geocoding
+                    stream.writeFloat(tookGeocoding);
                     // distance
                     stream.writeFloat((float) dist);
                     // time
                     stream.writeInt(time);
                     // points
-                    stream.writeInt(pointNum);                    
+                    stream.writeInt(pointNum);
                     for (int i = 0; i < pointNum; i++) {
                         stream.writeFloat((float) points.latitude(i));
                         stream.writeFloat((float) points.longitude(i));
@@ -147,10 +153,11 @@ public class GraphHopperServlet extends HttpServlet {
                     JSONBuilder json = new JSONBuilder().
                             startObject("info").
                             object("took", took).
+                            object("tookGeocoding", tookGeocoding).
                             endObject().
                             startObject("route").
-                            object("from", new Double[]{fromLon, fromLat}).
-                            object("to", new Double[]{toLon, toLat}).
+                            object("from", new Double[]{start.lon, start.lat}).
+                            object("to", new Double[]{end.lon, end.lat}).
                             object("distance", dist).
                             object("time", time).
                             startObject("data").
@@ -162,11 +169,11 @@ public class GraphHopperServlet extends HttpServlet {
                     writeJson(req, res, json.build());
                 }
 
-                logger.info(infoStr + " " + fromLat + "," + fromLon + "->" + toLat + "," + toLon
+                logger.info(infoStr + " " + start + "->" + end
                         + ", distance: " + dist + ", time:" + time + "min, points:" + points.size()
                         + ", took:" + took + ", debug - " + p.debugInfo());
             } catch (Exception ex) {
-                logger.error("Error while query:" + fromLat + "," + fromLon + "->" + toLat + "," + toLon, ex);
+                logger.error("Error while query:" + start + "->" + end, ex);
                 writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());
             }
         } catch (NumberFormatException ex) {
@@ -181,6 +188,13 @@ public class GraphHopperServlet extends HttpServlet {
         if (l != null && l.length > 0)
             return l[0];
         return "";
+    }
+
+    protected String[] getParams(HttpServletRequest req, String string) {
+        String[] l = req.getParameterMap().get(string);
+        if (l != null && l.length > 0)
+            return l;
+        return new String[0];
     }
 
     public void writeError(HttpServletResponse res, int code, String str) {
@@ -216,5 +230,66 @@ public class GraphHopperServlet extends HttpServlet {
             else
                 writeResponse(res, json.toString());
         }
+    }
+
+    void returnError(HttpServletResponse res, String errorMessage) throws IOException {
+        res.sendError(SC_BAD_REQUEST, errorMessage);
+    }
+
+    private List<GHInfoPoint> getPoints(HttpServletRequest req) throws IOException {
+        String[] pointsAsStr = getParams(req, "point");
+        if (pointsAsStr.length == 0) {
+            String from = getParam(req, "from");
+            String to = getParam(req, "to");
+            if (!Helper.isEmpty(from) && !Helper.isEmpty(to))
+                pointsAsStr = new String[]{from, to};
+        }
+
+        final List<GHInfoPoint> infoPoints = new ArrayList<GHInfoPoint>();
+        List<GHThreadPool.GHWorker> workers = new ArrayList<GHThreadPool.GHWorker>();
+        for (int pointNo = 0; pointNo < pointsAsStr.length; pointNo++) {
+            final String str = pointsAsStr[pointNo];
+            try {
+                String[] fromStrs = str.split(",");
+                if (fromStrs.length == 2) {
+                    double fromLat = Double.parseDouble(fromStrs[0]);
+                    double fromLon = Double.parseDouble(fromStrs[1]);
+                    infoPoints.add(new GHInfoPoint(fromLat, fromLon));
+                    continue;
+                }
+            } catch (Exception ex) {
+            }
+
+            final int index = infoPoints.size();
+            infoPoints.add(new GHInfoPoint(Double.NaN, Double.NaN).name(str));
+            GHThreadPool.GHWorker worker = new GHThreadPool.GHWorker(timeOutInMillis) {
+                @Override public String name() {
+                    return "geocoding search " + str;
+                }
+
+                @Override public void run() {
+                    List<GHInfoPoint> tmpPoints = geocoding.search(str);
+                    if (!tmpPoints.isEmpty())
+                        infoPoints.set(index, tmpPoints.get(0));
+                }
+            };
+            workers.add(worker);
+            threadPool.enqueue(worker);
+        }
+        threadPool.waitFor(workers, timeOutInMillis);
+        for (GHInfoPoint p : infoPoints) {
+            if (Double.isNaN(p.lat))
+                throw new IllegalArgumentException("[nominatim] Not all points could be resolved! " + infoPoints);
+        }
+
+        // TODO resolve name in a thread if only lat,lon is given but limit to a certain timeout
+        if (infoPoints == null || infoPoints.size() < 2)
+            throw new IllegalArgumentException("Did you specify point=<from>&point=<to> ? Use at least 2 points! " + infoPoints);
+
+        // TODO execute algorithm multiple times!
+        if (infoPoints.size() != 2)
+            throw new IllegalArgumentException("TODO! At the moment max. 2 points has to be specified");
+
+        return infoPoints;
     }
 }
