@@ -78,9 +78,9 @@ public class GraphHopperWeb implements GraphHopperAPI {
             took = json.getJSONObject("info").getDouble("took");
             JSONObject route = json.getJSONObject("route");
             double distance = route.getDouble("distance");
-            int timeInMinutes = route.getInt("time");            
+            int timeInSeconds = route.getInt("time");            
             PointList list = WebHelper.decodePolyline(route.getString("coordinates"), 100);
-            return new GHResponse(list).distance(distance).time(timeInMinutes);
+            return new GHResponse(list).distance(distance).time(timeInSeconds);
         } catch (Exception ex) {
             throw new RuntimeException("Problem while fetching path " + request.from() + "->" + request.to(), ex);
         } finally {

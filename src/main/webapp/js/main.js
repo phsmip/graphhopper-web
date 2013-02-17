@@ -213,7 +213,7 @@ function routeLatLng(fromPoint, toPoint) {
         }
                 
         distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
-            + "time: " + json.route.time + "min<br/>"
+            + "time: " + round(json.route.time / 60, 1000) + "min<br/>"
             + "took <br/>"
             + " <small>&nbsp; routing: " + round(json.info.took, 1000) + "s<br/>"
             + " &nbsp; <a href=\"https://github.com/graphhopper/graphhopper/issues/16\">geocoding</a>: " + round(json.info.tookGeocoding, 1000) 

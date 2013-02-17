@@ -117,7 +117,6 @@ public class GraphHopperServlet extends HttpServlet {
                 infoStr += " NO path found";
 
             double distInKM = p.distance() / 1000;
-            int timeInMinutes = Math.round(p.time() / 60f);
             String encodedParam = getParam(req, "encodedPolyline");
 
             JSONBuilder builder = new JSONBuilder().
@@ -129,7 +128,7 @@ public class GraphHopperServlet extends HttpServlet {
                     object("from", new Double[]{start.lon, start.lat}).
                     object("to", new Double[]{end.lon, end.lat}).
                     object("distance", distInKM).
-                    object("time", timeInMinutes);
+                    object("time", p.time());
             if ("true".equals(encodedParam)) {
                 String encodedPolyline = WebHelper.encodePolyline(points);
                 builder.object("coordinates", encodedPolyline);
@@ -143,7 +142,7 @@ public class GraphHopperServlet extends HttpServlet {
 
             writeJson(req, res, builder.build());
             logger.info(req.getQueryString() + " " + infoStr + " " + start + "->" + end
-                    + ", distance: " + distInKM + ", time:" + timeInMinutes + "min, points:" + points.size()
+                    + ", distance: " + distInKM + ", time:" + Math.round(p.time() / 60f) + "min, points:" + points.size()
                     + ", took:" + took + ", debug - " + p.debugInfo());
         } catch (Exception ex) {
             logger.error("Error while query:" + start + "->" + end, ex);
