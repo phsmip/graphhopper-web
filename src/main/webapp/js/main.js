@@ -62,7 +62,7 @@ var ghRequest = {
     to: new GHInput("")
 }
 
-LOCAL = true;
+LOCAL=true;
 var host;
 if(LOCAL)
     host = "http://localhost:8989";
