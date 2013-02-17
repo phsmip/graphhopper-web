@@ -8,14 +8,14 @@
         <link href='http://fonts.googleapis.com/css?family=Arbutus+Slab' rel='stylesheet' type='text/css'>        
         <title>GraphHopper Web Demo</title>
 
-        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.4.5/leaflet.css" />
+        <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.css" />
         <!--[if lte IE 8]>
-            <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.4.5/leaflet.ie.css" />
+            <link rel="stylesheet" href="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.ie.css" />
         <![endif]-->
-        <script src="http://cdn.leafletjs.com/leaflet-0.4.5/leaflet.js"></script>
+        <script src="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.js"></script>
         <script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>        
         <script defer type="text/javascript" src="js/jquery.history.js"></script>
-        <script type="text/javascript" src="js/main.js?v=7"></script>
+        <script type="text/javascript" src="js/main.js?v=8"></script>
         <style>
             body {
                 font-family: 'Arbutus Slab', serif;
@@ -23,7 +23,8 @@
             }
             #map { 
                 width: 800px;
-                height: 600px; 
+                height: 600px;
+                cursor: default;
             }
             #input {
                 float: left;                
@@ -84,12 +85,14 @@
         <div id="input">
             <form id="locationform" action="javascript:return false;">
                 <div id="fromDiv">
-                    <img src="img/marker-from.png"/>
+                    <img id="fromIndicator"class="hidden" src="img/indicator.gif"/>
+                    <img id="fromFlag" src="img/marker-from.png"/>
                     <input id="fromInput" class="defaulting" type="text" name="from"  value="From" defaultValue="From"/>                
                     <div id="fromFound"></div>
                 </div>
                 <div id="toDiv">
-                    <img src="img/marker-to.png"/>
+                    <img id="toIndicator" src="img/indicator.gif"/>
+                    <img id="toFlag" class="hidden" src="img/marker-to.png"/>                    
                     <input id="toInput" class="defaulting" type="text" name="to" value="To" defaultValue="To"/>
                     <div id="toFound"></div>
                 </div>

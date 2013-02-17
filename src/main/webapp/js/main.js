@@ -1,6 +1,10 @@
 // fixing cross domain support e.g in Opera
 jQuery.support.cors = true;
 
+var nominatim = "http://open.mapquestapi.com/nominatim/v1/search.php";
+var nominatim_reverse = "http://open.mapquestapi.com/nominatim/v1/reverse.php";
+// var nominatim = "http://nominatim.openstreetmap.org/search";
+// var nominatim_reverse = "http://nominatim.openstreetmap.org/reverse";
 var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
@@ -14,15 +18,7 @@ function createCallback(errorFallback) {
         console.log(errorFallback + " " +JSON.stringify(err));
     };
 }
-var minPathPrecision = 1;
-var fromCoord = {
-    input: "", 
-    name: ""
-};
-var toCoord = {
-    input: "", 
-    name: ""
-};
+var clickToRoute;
 var iconTo = L.icon({
     iconUrl: './img/marker-to.png', 
     iconAnchor: [10, 16]
@@ -31,7 +27,40 @@ var iconFrom = L.icon({
     iconUrl: './img/marker-from.png', 
     iconAnchor: [10, 16]
 });
+
 var bounds = {};
+
+GHInput = function (str){ 
+    // either text or coordinates
+    this.input = str;
+    this.resolvedText = "";
+    try {
+        var index = str.indexOf(",");        
+        if(index >= 0) {              
+            this.lat = round(parseFloat(str.substr(0, index)));
+            this.lng = round(parseFloat(str.substr(index + 1)));
+            this.input = this.toString();
+        }
+    } catch(ex) {        
+    }
+}
+GHInput.prototype.setCoord = function(lat,lng) {
+    this.resolvedText = "";
+    this.lat = round(lat);
+    this.lng = round(lng);
+    this.input = this.lat + "," + this.lng;
+};
+GHInput.prototype.toString = function() {
+    if(this.lat && this.lng)
+        return this.lat + "," + this.lng;
+    return null;
+};
+
+var ghRequest = {
+    minPathPrecision : 1,
+    from : new GHInput(""), 
+    to: new GHInput("")
+}
 
 LOCAL=true;
 var host;
@@ -57,14 +86,34 @@ $(document).ready(function(e) {
         initMap();
         var params = parseUrlWithHisto()        
         if(params.minPathPrecision)
-            minPathPrecision = params.minPathPrecision;        
+            ghRequest.minPathPrecision = params.minPathPrecision;
         if(params.point && params.point.length == 2)
-            freshRouting(params.point[0], params.point[1]);
+            resolveCoords(params.point[0], params.point[1]);        
     })
 });
 
+function resolveCoords(fromStr, toStr) { 
+    routingLayer.clearLayers();
+    if(fromStr != ghRequest.from.input)
+        ghRequest.from = new GHInput(fromStr);
+    
+    if(toStr != ghRequest.to.input)
+        ghRequest.to = new GHInput(toStr);
+    
+    if(ghRequest.from.lat && ghRequest.to.lat) {
+        // do not wait for resolve
+        resolveFrom();
+        resolveTo();
+        routeLatLng(ghRequest);
+    } else {
+        // wait for resolve as we need the coord for routing     
+        $.when(resolveFrom(), resolveTo()).done(function(fromArgs, toArgs) {                
+            routeLatLng(ghRequest);
+        });    
+    }
+}
+
 function initMap() {
-    // var center = getCenter(bounds);
     console.log("init map at " + JSON.stringify(bounds));
     map = L.map('map');
     map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), new L.LatLng(bounds.maxLat, bounds.maxLon)));
@@ -103,91 +152,149 @@ function initMap() {
         "style": myStyle
     }).addTo(map); 
     
-    routingLayer = L.geoJson().addTo(map);
-    var routeNow = true;    
+    routingLayer = L.geoJson().addTo(map);    
+    clickToRoute = true;
     function onMapClick(e) {        
-        routeNow = !routeNow;
-        if(routeNow) {            
-            var endPoint = e.latlng;            
-            toCoord.lat = round(endPoint.lat);
-            toCoord.lng = round(endPoint.lng);
-            toCoord.input = toStr(toCoord);
-            toCoord.resolved = false;            
-            flagTo(toCoord.lat, toCoord.lng);
-            freshRouting(fromCoord.input, toCoord.input);
-        } else {
+        if(clickToRoute) {
+            // set start point
             routingLayer.clearLayers();
-            fromCoord.lat = round(e.latlng.lat);
-            fromCoord.lng = round(e.latlng.lng);
-            fromCoord.input = toStr(fromCoord);
-            fromCoord.resolved = false;
-            flagFrom(fromCoord.lat, fromCoord.lng);
+            clickToRoute = false;
+            ghRequest.from.setCoord(e.latlng.lat, e.latlng.lng);
+            resolveFrom();            
+        } else {
+            // set end point
+            ghRequest.to.setCoord(e.latlng.lat, e.latlng.lng);
+            resolveTo();            
+            // do not wait for resolving
+            routeLatLng(ghRequest);            
         }
     }
 
     map.on('click', onMapClick);       
 }
 
-function flagTo(lat, lng) {
-    L.marker([lat, lng], {
-        icon: iconTo
-    }).addTo(routingLayer).bindPopup("End");
-}
-function flagFrom(lat, lng) {
-    L.marker([lat, lng], {
-        icon: iconFrom
-    }).addTo(routingLayer).bindPopup("Start");
+function setFlag(latlng, isFrom) {
+    if(latlng.lat) {
+        L.marker([latlng.lat, latlng.lng], {
+            icon: (isFrom? iconFrom : iconTo)
+        }).addTo(routingLayer).bindPopup(isFrom? "Start" : "End");                  
+    } 
 }
 
-function toStr(latlng) {
-    if(latlng)
-        return latlng.lat + "," + latlng.lng;
-    else
-        return "";
+function resolveFrom() {    
+    setFlag(ghRequest.from, true);
+    return resolve("from", ghRequest.from);    
 }
 
-function toLatLng(str) {    
-    var latLng = {
-        "name" : str, 
-        "input" : str, 
-        "resolved" : false
-    };
-    try {
-        var index = str.indexOf(",");        
-        if(index >= 0) {              
-            latLng.lat = round(parseFloat(str.substr(0, index)));
-            latLng.lng = round(parseFloat(str.substr(index + 1)));
-        }
-    } catch(ex) {        
+function resolveTo() {    
+    setFlag(ghRequest.to, false);
+    return resolve("to", ghRequest.to);    
+}
+
+function resolve(fromOrTo, point) {
+    $("#" + fromOrTo + "Flag").hide();
+    $("#" + fromOrTo + "Indicator").show();
+    return getInfoFromLocation(point).done(function() {        
+        $("#" + fromOrTo + "Input").val(point.input);
+        if(point.resolvedText)
+            $("#" + fromOrTo + "Found").html(point.resolvedText);
+        
+        $("#" + fromOrTo + "Flag").show();
+        $("#" + fromOrTo + "Indicator").hide();
+        return point;
+    })   
+}
+
+var getInfoTmpCounter = 0;
+function getInfoFromLocation(locCoord) {
+    if(locCoord.resolvedText) {
+        var tmpDefer = $.Deferred();
+        tmpDefer.resolve([locCoord]);
+        return tmpDefer;   
     }
-    return latLng;
-}
+        
+    // Every call to getInfoFromLocation needs to get its own callback. Sadly we need to overwrite 
+    // the callback method name for nominatim and cannot use the default jQuery behaviour.
+    getInfoTmpCounter++;
+    var url;
+    if(locCoord.lat && locCoord.lng) {
+        // in every case overwrite name
+        locCoord.resolvedText = "Error while looking up coordinate";
+        url = nominatim_reverse + "?lat=" + locCoord.lat + "&lon="
+        + locCoord.lng + "&format=json&zoom=16&json_callback=reverse_callback" + getInfoTmpCounter;
+        return $.ajax({
+            url: url,
+            type : "GET",
+            dataType: "jsonp",
+            timeout: 3000,
+            jsonpCallback: 'reverse_callback' + getInfoTmpCounter            
+        }).fail(function(err) { 
+            // not critical => no alert
+            console.err(err);
+        }).pipe(function(json) {
+            if(!json) {
+                locCoord.resolvedText = "No description found for coordinate";
+                return [locCoord];
+            }
+            var address = json.address;
+            locCoord.resolvedText = "";
+            if(address.road)
+                locCoord.resolvedText += address.road + " ";
+            if(address.city)
+                locCoord.resolvedText += address.city + " ";
+            if(address.country)
+                locCoord.resolvedText += address.country;            
             
-function freshRouting(from, to) {
-    $("#fromInput").val(from);
-    $("#toInput").val(to);
-    fromCoord.input = from;
-    toCoord.input = to;
-    routeLatLng(fromCoord, toCoord);
+            return [locCoord];
+        });        
+    } else {
+        // see https://trac.openstreetmap.org/ticket/4683 why limit=3 and not 1
+        url = nominatim + "?format=json&q=" + encodeURIComponent(locCoord.input)
+        +"&limit=3&json_callback=search_callback" + getInfoTmpCounter;
+        if(bounds.initialized) {
+            // minLon, minLat, maxLon, maxLat => left, top, right, bottom
+            url += "&bounded=1&viewbox=" + bounds.minLon + ","+bounds.maxLat + ","+bounds.maxLon +","+ bounds.minLat;
+        }
+        locCoord.resolvedText = "Error while looking up area description";
+        return $.ajax({
+            url: url,
+            type : "GET",
+            dataType: "jsonp",
+            timeout: 3000,
+            jsonpCallback: 'search_callback' + getInfoTmpCounter
+        }).fail(createCallback("[nominatim] Problem while looking up location " + locCoord.input)).
+        pipe(function(jsonArgs) {
+            var json = jsonArgs[0];
+            if(!json) {
+                locCoord.resolvedText = "No area description found";                
+                return [locCoord];
+            }        
+            locCoord.resolvedText = json.display_name;
+            locCoord.lat = round(json.lat);
+            locCoord.lng = round(json.lon);            
+            return [locCoord];
+        });
+    }
 }
 
-function routeLatLng(fromPoint, toPoint) {
+function routeLatLng(request) {    
+    clickToRoute = true;
     $("#info").empty();
     var distDiv = $("<div/>");
     $("#info").append(distDiv);
     
-    var from = fromPoint.input;
-    var to = toPoint.input;
-    var historyUrl = "?point=" + fromPoint.input + "&point=" + toPoint.input;
-    if(minPathPrecision != 1)
-        historyUrl += "&minPathPrecision=" + minPathPrecision;
-    History.pushState({}, browserTitle, historyUrl);
-    doRequest(historyUrl, function (json) {
-        routingLayer.clearLayers();
-        if(json.info.wrongApiVersion) {
-            distDiv.html('wrong API version at ' + host);
-            return;
-        }
+    var from = request.from.toString();
+    var to = request.to.toString();
+    if(!from || !to) {
+        distDiv.html('<small>routing not possible. location(s) not found in the area</small>');
+        return;
+    }
+    
+    var url = "?point=" + from + "&point=" + to;
+    if(request.minPathPrecision != 1)
+        url += "&minPathPrecision=" + request.minPathPrecision;
+    History.pushState(request, browserTitle, url);
+    doRequest(url, function (json) {        
         if(json.info.routeNotFound) {
             distDiv.html('route not found');            
             return;
@@ -198,6 +305,7 @@ function routeLatLng(fromPoint, toPoint) {
             // "style": myStyle,                
             "geometry": json.route.data
         };
+        routingLayer.clearLayers();
         routingLayer.addData(geojsonFeature);        
         var coords = json.route.data.coordinates;
         if(coords && coords.length > 1) {
@@ -208,22 +316,25 @@ function routeLatLng(fromPoint, toPoint) {
             var maxLat = Math.max(start[1], end[1]);
             var maxLon = Math.max(start[0], end[0]);            
             map.fitBounds(new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon)));
-            flagFrom(start[1], start[0]);
-            flagTo(end[1], end[0]);
+                        
+            setFlag({
+                lat: start[1], 
+                lng : start[0]
+            }, true);
+            setFlag({
+                lat: end[1], 
+                lng: end[0]
+            }, false);
         }
-                
+
         distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
-            + "time: " + round(json.route.time / 60, 1000) + "min<br/>"
-            + "took <br/>"
-            + " <small>&nbsp; routing: " + round(json.info.took, 1000) + "s<br/>"
-            + " &nbsp; <a href=\"https://github.com/graphhopper/graphhopper/issues/16\">geocoding</a>: " + round(json.info.tookGeocoding, 1000) 
-            + "s</small><br/>"
-            + "points: " + json.route.data.coordinates.length); 
+            +"time: " + round(json.route.time / 60, 1000) + "min<br/>"
+            +"took: " + round(json.info.took, 1000) + "s<br/>"
+            +"points: " + json.route.data.coordinates.length); 
         $("#info").append(distDiv);
-        // OSRM always needs gps coordinates
-//        var osrmLink = $("<a>OSRM</a> ");
-//        osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
-//        $("#info").append(osrmLink);
+        var osrmLink = $("<a>OSRM</a> ");
+        osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
+        $("#info").append(osrmLink);
         var googleLink = $("<a>Google</a> ");
         googleLink.attr("href", "http://maps.google.com/?q=from:" + from + "+to:" + to);
         $("#info").append(googleLink);
@@ -261,9 +372,9 @@ function doRequest(demoUrl, callback) {
         "error" : createCallback("Error while request"),
         "type" : "GET",
         "dataType": "jsonp"
-    });
+    });        
 }
-
+    
 function decodePath(encoded, geoJson) {
     var len = encoded.length;
     var index = 0;
@@ -305,6 +416,7 @@ function decodePath(encoded, geoJson) {
 
 function requestBounds() {
     var url = host + "/api/bounds?type=jsonp";
+    console.log(url);    
     return $.ajax({
         "url": url,
         "success": function(json) {
@@ -346,7 +458,6 @@ function parseUrlWithHisto() {
 function parseUrlAndRequest() {
     return parseUrl(window.location.search);
 }
-
 function parseUrl(query) {
     var index = query.indexOf('?');
     if(index >= 0)
@@ -379,18 +490,21 @@ function initForm() {
         if(e.which == 10 || e.which == 13) {
             var to = $("#toInput").val();
             // do not resolve 'to'
-            if(to != "To")                 
-                freshRouting($("#fromInput").val(), to);
+            if(to == "To") {
+                resolveTo();
+            } else 
+                resolveCoords($("#fromInput").val(), to);
         }
     });
     
     // if TO will be submitted
     $('#toInput').keyup(function(e) {
         if(e.which == 10 || e.which == 13) {
-            var from = $("#fromInput").val();
-            // do not resolve from
-            if(from != "From")
-                freshRouting(from, $("#toInput").val());
+            var from = $("#fromInput").val();            
+            if(from == "From")  {
+                resolveFrom();
+            } else
+                resolveCoords(from, $("#toInput").val());
         }
     });
 
