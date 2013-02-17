@@ -62,7 +62,7 @@ var ghRequest = {
     to: new GHInput("")
 }
 
-LOCAL=true;
+LOCAL = true;
 var host;
 if(LOCAL)
     host = "http://localhost:8989";
@@ -327,8 +327,13 @@ function routeLatLng(request) {
             }, false);
         }
 
-        distDiv.html("distance: " + round(json.route.distance, 1000) + "km<br/>"
-            +"time: " + round(json.route.time / 60, 1000) + "min<br/>"
+        var tmpTime = round(json.route.time / 60, 1000);
+        if(tmpTime > 60) 
+            tmpTime = round(tmpTime / 60, 1) + "h " + round(tmpTime % 60, 1) + "min";
+        else
+            tmpTime = tmpTime % 60+ "min";
+        distDiv.html("distance: " + round(json.route.distance, 100) + "km<br/>"
+            +"time: " + tmpTime + "<br/>"
             +"took: " + round(json.info.took, 1000) + "s<br/>"
             +"points: " + json.route.data.coordinates.length); 
         $("#info").append(distDiv);
