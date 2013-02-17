@@ -348,7 +348,7 @@ function routeLatLng(request) {
 }
 
 function doRequest(demoUrl, callback) {
-    var encodedPolyline = false;
+    var encodedPolyline = true;
     var debug = false
     var url = host + "/api" + demoUrl + "&type=jsonp";
     if(encodedPolyline)
