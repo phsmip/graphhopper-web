@@ -73,6 +73,9 @@
                 padding-right: 3px;                
                 float: left;
             }
+            .hidden {
+                display: none;
+            }
         </style>
     </head>
     <body>
@@ -85,14 +88,14 @@
         <div id="input">
             <form id="locationform" action="javascript:return false;">
                 <div id="fromDiv">
-                    <img id="fromIndicator"class="hidden" src="img/indicator.gif"/>
+                    <img id="fromIndicator" class="hidden" src="img/indicator.gif"/>
                     <img id="fromFlag" src="img/marker-from.png"/>
                     <input id="fromInput" class="defaulting" type="text" name="from"  value="From" defaultValue="From"/>                
                     <div id="fromFound"></div>
                 </div>
                 <div id="toDiv">
-                    <img id="toIndicator" src="img/indicator.gif"/>
-                    <img id="toFlag" class="hidden" src="img/marker-to.png"/>                    
+                    <img id="toIndicator" class="hidden" src="img/indicator.gif"/>
+                    <img id="toFlag" src="img/marker-to.png"/>                    
                     <input id="toInput" class="defaulting" type="text" name="to" value="To" defaultValue="To"/>
                     <div id="toFound"></div>
                 </div>

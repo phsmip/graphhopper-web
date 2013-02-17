@@ -62,7 +62,7 @@ var ghRequest = {
     to: new GHInput("")
 }
 
-LOCAL=true;
+LOCAL=false;
 var host;
 if(LOCAL)
     host = "http://localhost:8989";
@@ -290,11 +290,14 @@ function routeLatLng(request) {
         return;
     }
     
-    var url = "?point=" + from + "&point=" + to;
-    if(request.minPathPrecision != 1)
-        url += "&minPathPrecision=" + request.minPathPrecision;
-    History.pushState(request, browserTitle, url);
-    doRequest(url, function (json) {        
+    var urlForAPI = "?point=" + from + "&point=" + to;
+    var urlForHistory = "?point=" + request.from.input + "&point=" + request.to.input;
+    if(request.minPathPrecision != 1) {
+        urlForHistory += "&minPathPrecision=" + request.minPathPrecision;
+        urlForAPI += "&minPathPrecision=" + request.minPathPrecision;
+    }
+    History.pushState(request, browserTitle, urlForHistory);
+    doRequest(urlForAPI, function (json) {        
         if(json.info.routeNotFound) {
             distDiv.html('route not found');            
             return;
