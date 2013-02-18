@@ -114,6 +114,10 @@ function resolveCoords(fromStr, toStr) {
 }
 
 function initMap() {
+    var mapDiv = $("#map");
+    var minSize = Math.min($(window).width(), $(window).height()) * 0.9;
+    mapDiv.width(minSize).height(minSize);
+
     console.log("init map at " + JSON.stringify(bounds));
     map = L.map('map');
     map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), new L.LatLng(bounds.maxLat, bounds.maxLon)));

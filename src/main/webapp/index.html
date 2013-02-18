@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html>
     <head>        
-        <meta name="viewport" content="width=320, initial-scale=1.0" />
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
         <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
         <meta name="keywords" content="road routing,shortest path,maps,openstreetmap,android,navigation,routenplaner,gis"/>
         <link type="image/png" rel="icon" href="/favicon.ico"/>
@@ -35,7 +35,8 @@
                 color: gray;
             }
             #info {
-                padding-top: 20px;
+                padding-top: 5px;
+                padding-bottom: 5px;
             }
             #info a {
                 padding-right: 5px;
@@ -55,7 +56,7 @@
                 font-size: 12px;
                 color: gray;
                 padding-top: 4px;
-                padding-bottom: 10px;
+                padding-bottom: 5px;
             }
             #warn {
                 color: orange;
@@ -76,15 +77,17 @@
             .hidden {
                 display: none;
             }
+            .no_link {
+                text-decoration: none;
+                color: black;
+            }
+            .small_text {
+                font-size: small;
+            }
         </style>
     </head>
     <body>
-        <a href="https://github.com/graphhopper">
-            <img style="position: absolute; top: 0; right: 0; border: 0;" 
-                 src="https://s3.amazonaws.com/github/ribbons/forkme_right_gray_6d6d6d.png" 
-                 alt="Fork me on GitHub">
-        </a>
-        <h1>GraphHopper Web Demo</h1>
+        <h1><a class="no_link" href="?">GraphHopper Web Demo</a></h1>
         <div id="input">
             <form id="locationform" action="javascript:return false;">
                 <div id="fromDiv">
@@ -100,10 +103,10 @@
                     <div id="toFound"></div>
                 </div>
                 <input id="hiddenButton" type="submit">
-            </form>
-            <div id="warn">
+            </form>            
+            <div class="small_text" id="info">
             </div>
-            <div id="info">
+            <div id="warn">
             </div>
         </div>
         <div id="map">
@@ -116,17 +119,17 @@
         <script type="text/javascript">
             PIWIK=false;
             if(PIWIK) {
-            var pkBaseURL = (("https:" == document.location.protocol) ? "https://www.pannous.info/piwik/" : "http://www.pannous.info/piwik/");
-            document.write(unescape("%3Cscript src='" + pkBaseURL + "piwik.js' type='text/javascript'%3E%3C/script%3E"));
+                var pkBaseURL = (("https:" == document.location.protocol) ? "https://www.pannous.info/piwik/" : "http://www.pannous.info/piwik/");
+                document.write(unescape("%3Cscript src='" + pkBaseURL + "piwik.js' type='text/javascript'%3E%3C/script%3E"));
             }
         </script>
         <script type="text/javascript">
             if(PIWIK)
-            try { 
-                var piwikTracker = Piwik.getTracker(pkBaseURL + "piwik.php", 7);
-                piwikTracker.trackPageView();
-                piwikTracker.enableLinkTracking();
-            } catch( err ) {}
+                try { 
+                    var piwikTracker = Piwik.getTracker(pkBaseURL + "piwik.php", 7);
+                    piwikTracker.trackPageView();
+                    piwikTracker.enableLinkTracking();
+                } catch( err ) {}
         </script>
         <noscript><p><img src="http://www.pannous.info/piwik/piwik.php?idsite=7" style="border:0" alt="" /></p></noscript>
         <!-- End Piwik Tracking Code -->
