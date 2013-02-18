@@ -120,7 +120,8 @@ function initMap() {
 
     console.log("init map at " + JSON.stringify(bounds));
     map = L.map('map');
-    map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), new L.LatLng(bounds.maxLat, bounds.maxLon)));
+    map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), 
+        new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
     // cloudmade provider:
     //    L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
@@ -131,9 +132,11 @@ function initMap() {
     // mapquest provider:
     var mapquestUrl = 'http://{s}.mqcdn.com/tiles/1.0.0/osm/{z}/{x}/{y}.png',
     subDomains = ['otile1','otile2','otile3','otile4'],
-    mapquestAttrib = 'Data provided by <a href="http://www.openstreetmap.org/" target="_blank">OpenStreetMap</a>,'
-    +'<a href="http://open.mapquest.co.uk" target="_blank">MapQuest</a> and contributors. '
-    +'Geocoder by <a href="http://wiki.openstreetmap.org/wiki/Nominatim">Nominatim</a>';
+    mapquestAttrib = 'Data &copy; <a href="http://www.openstreetmap.org/">OpenStreetMap</a>,'
+    +'<a href="http://open.mapquest.co.uk">MapQuest</a>. '
+    +'Geocoder: <a href="http://wiki.openstreetmap.org/wiki/Nominatim">Nominatim</a>. '
+    + 'JS: <a href="http://leafletjs.com/">Leaflet</a>';
+    map.attributionControl.setPrefix('');
     L.tileLayer(mapquestUrl, {
         attribution: mapquestAttrib, 
         subdomains: subDomains
@@ -147,8 +150,11 @@ function initMap() {
         "type": "Feature",        
         "geometry": {            
             "type": "LineString",
-            "coordinates":[[bounds.minLon, bounds.minLat], [bounds.maxLon, bounds.minLat], 
-            [bounds.maxLon, bounds.maxLat], [bounds.minLon, bounds.maxLat],
+            "coordinates":[
+            [bounds.minLon, bounds.minLat], 
+            [bounds.maxLon, bounds.minLat], 
+            [bounds.maxLon, bounds.maxLat], 
+            [bounds.minLon, bounds.maxLat],
             [bounds.minLon, bounds.minLat]]
         }
     };
@@ -321,8 +327,9 @@ function routeLatLng(request) {
             var minLat = Math.min(start[1], end[1]);
             var minLon = Math.min(start[0], end[0]);
             var maxLat = Math.max(start[1], end[1]);
-            var maxLon = Math.max(start[0], end[0]);            
-            map.fitBounds(new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon)));
+            var maxLon = Math.max(start[0], end[0]);
+            var tmpB= new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon));
+            map.fitBounds(tmpB);
                         
             setFlag({
                 lat: start[1], 
