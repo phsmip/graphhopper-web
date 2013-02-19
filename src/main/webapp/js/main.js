@@ -8,16 +8,6 @@ var nominatim_reverse = "http://open.mapquestapi.com/nominatim/v1/reverse.php";
 var routingLayer;
 var map;
 var browserTitle = "GraphHopper Web Demo";
-function createCallback(errorFallback) {
-    return function(err) {
-        if(err.statusText && err.statusText != "OK")
-            alert(err.statusText);
-        else
-            alert(errorFallback);
-    
-        console.log(errorFallback + " " +JSON.stringify(err));
-    };
-}
 var clickToRoute;
 var iconTo = L.icon({
     iconUrl: './img/marker-to.png', 
@@ -29,38 +19,7 @@ var iconFrom = L.icon({
 });
 
 var bounds = {};
-
-GHInput = function (str){ 
-    // either text or coordinates
-    this.input = str;
-    this.resolvedText = "";
-    try {
-        var index = str.indexOf(",");        
-        if(index >= 0) {              
-            this.lat = round(parseFloat(str.substr(0, index)));
-            this.lng = round(parseFloat(str.substr(index + 1)));
-            this.input = this.toString();
-        }
-    } catch(ex) {        
-    }
-}
-GHInput.prototype.setCoord = function(lat,lng) {
-    this.resolvedText = "";
-    this.lat = round(lat);
-    this.lng = round(lng);
-    this.input = this.lat + "," + this.lng;
-};
-GHInput.prototype.toString = function() {
-    if(this.lat && this.lng)
-        return this.lat + "," + this.lng;
-    return null;
-};
-
-var ghRequest = {
-    minPathPrecision : 1,
-    from : new GHInput(""), 
-    to: new GHInput("")
-}
+var ghRequest = new GHRequest();
 
 LOCAL=false;
 var host;
@@ -83,12 +42,19 @@ $(document).ready(function(e) {
     //    }
     initForm();
     requestBounds().done(function(){
-        initMap();
+        
         var params = parseUrlWithHisto()        
         if(params.minPathPrecision)
             ghRequest.minPathPrecision = params.minPathPrecision;
-        if(params.point && params.point.length == 2)
-            resolveCoords(params.point[0], params.point[1]);        
+        var fromAndTo = params.from && params.to;
+        var routeNow = params.point && params.point.length == 2 || fromAndTo;
+        initMap(routeNow);
+        if(routeNow) {
+            if(fromAndTo)
+                resolveCoords(params.from, params.to);
+            else
+                resolveCoords(params.point[0], params.point[1]);                
+        }
     })
 });
 
@@ -113,15 +79,17 @@ function resolveCoords(fromStr, toStr) {
     }
 }
 
-function initMap() {
+function initMap(routeNow) {
     var mapDiv = $("#map");
     var minSize = Math.min($(window).width(), $(window).height()) * 0.9;
     mapDiv.width(minSize).height(minSize);
 
     console.log("init map at " + JSON.stringify(bounds));
     map = L.map('map');
-    map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), 
-        new L.LatLng(bounds.maxLat, bounds.maxLon)));
+    
+    if(!routeNow)
+        map.fitBounds(new L.LatLngBounds(new L.LatLng(bounds.minLat, bounds.minLon), 
+            new L.LatLng(bounds.maxLat, bounds.maxLon)));
     
     // cloudmade provider:
     //    L.tileLayer('http://{s}.tile.cloudmade.com/{key}/{styleId}/256/{z}/{x}/{y}.png', {
@@ -300,6 +268,17 @@ function routeLatLng(request) {
         return;
     }
     
+    routingLayer.clearLayers();        
+    
+    var minLat = Math.min(request.from.lat, request.to.lat);
+    var minLon = Math.min(request.from.lng, request.to.lng);
+    var maxLat = Math.max(request.from.lat, request.to.lat);
+    var maxLon = Math.max(request.from.lng, request.to.lng);
+    var tmpB = new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon));
+    map.fitBounds(tmpB);                        
+    setFlag(request.from, true);
+    setFlag(request.to, false);    
+    
     var urlForAPI = "?point=" + from + "&point=" + to;
     var urlForHistory = "?point=" + request.from.input + "&point=" + request.to.input;
     if(request.minPathPrecision != 1) {
@@ -307,7 +286,7 @@ function routeLatLng(request) {
         urlForAPI += "&minPathPrecision=" + request.minPathPrecision;
     }
     History.pushState(request, browserTitle, urlForHistory);
-    doRequest(urlForAPI, function (json) {        
+    request.doRequest(host, urlForAPI, function (json) {        
         if(json.info.routeNotFound) {
             distDiv.html('route not found');            
             return;
@@ -318,29 +297,10 @@ function routeLatLng(request) {
             // "style": myStyle,                
             "geometry": json.route.data
         };
-        routingLayer.clearLayers();
+        
         routingLayer.addData(geojsonFeature);        
-        var coords = json.route.data.coordinates;
-        if(coords && coords.length > 1) {
-            var start = coords[0];
-            var end = coords[coords.length - 1];
-            var minLat = Math.min(start[1], end[1]);
-            var minLon = Math.min(start[0], end[0]);
-            var maxLat = Math.max(start[1], end[1]);
-            var maxLon = Math.max(start[0], end[0]);
-            var tmpB= new L.LatLngBounds(new L.LatLng(minLat, minLon), new L.LatLng(maxLat, maxLon));
-            map.fitBounds(tmpB);
-                        
-            setFlag({
-                lat: start[1], 
-                lng : start[0]
-            }, true);
-            setFlag({
-                lat: end[1], 
-                lng: end[0]
-            }, false);
-        }
-
+        // var coords = json.route.data.coordinates;
+        
         var tmpTime = round(json.route.time / 60, 1000);
         if(tmpTime > 60) 
             tmpTime = round(tmpTime / 60, 1) + "h " + round(tmpTime % 60, 1) + "min";
@@ -364,34 +324,6 @@ function routeLatLng(request) {
             $(element).css("color", "black");
         });
     });
-}
-
-function doRequest(demoUrl, callback) {
-    var encodedPolyline = true;
-    var debug = false
-    var url = host + "/api" + demoUrl + "&type=jsonp";
-    if(encodedPolyline)
-        url += "&encodedPolyline=true";    
-    if(debug)
-        url += "&debug=true";
-    $.ajax({
-        "url" : url,
-        "success": function(json) {
-            // convert encoded polyline stuff to normal json
-            if(encodedPolyline) {
-                var tmpArray = decodePath(json.route.coordinates, true);                
-                json.route.coordinates = null;
-                json.route.data = {
-                    "type" : "LineString",
-                    "coordinates": tmpArray
-                };
-            }
-            callback(json);
-        },
-        "error" : createCallback("Error while request"),
-        "type" : "GET",
-        "dataType": "jsonp"
-    });        
 }
     
 function decodePath(encoded, geoJson) {

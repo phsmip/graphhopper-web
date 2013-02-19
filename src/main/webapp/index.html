@@ -15,7 +15,8 @@
         <script src="http://cdn.leafletjs.com/leaflet-0.5.1/leaflet.js"></script>
         <script type="text/javascript" src="js/jquery-1.7.2.min.js"></script>        
         <script defer type="text/javascript" src="js/jquery.history.js"></script>
-        <script type="text/javascript" src="js/main.js?v=8"></script>
+        <script type="text/javascript" src="js/ghrequest.js?v=1"></script>
+        <script type="text/javascript" src="js/main.js?v=9"></script>
         <style>
             body {
                 font-family: 'Arbutus Slab', serif;
@@ -82,13 +83,17 @@
                 text-decoration: none;
                 color: black;
             }
+            .no_link img {
+                margin-bottom: -10px;
+            }
             .small_text {
                 font-size: small;
             }
         </style>
     </head>
     <body>
-        <h1><a class="no_link" href="http://graphhopper.com"><img alt="GraphHopper" src="http://graphhopper.com/img/header.png"> 
+        <h1><a class="no_link" href="http://graphhopper.com">
+                <img alt="GraphHopper" src="http://graphhopper.com/img/header.png"/> 
                 <span style="font-size: small; color: gray">Web Demo</span></a></h1>
         <div id="input">
             <form id="locationform" action="javascript:return false;">
