@@ -38,7 +38,7 @@ public class MyGZIPHook extends GzipFilter {
 
     @Override
     public void doFilter(ServletRequest req, ServletResponse res, FilterChain chain) throws IOException, ServletException {
-        logger.info("NOW " + req.getParameterMap().toString() + ", filter:" + chain);
+        // logger.info("NOW " + req.getParameterMap().toString() + ", filter:" + chain);
         // if response contains "Content-Encoding" => do not filter
         super.doFilter(req, res, chain);
     }
