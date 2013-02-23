@@ -23,6 +23,14 @@ import com.graphhopper.util.shapes.GHInfoPoint;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GHResponse;
+import com.graphhopper.routing.util.BikeFlagsEncoder;
+import com.graphhopper.routing.util.CarFlagsEncoder;
+import com.graphhopper.routing.util.FastestCalc;
+import com.graphhopper.routing.util.FlagsEncoder;
+import com.graphhopper.routing.util.FootFlagsEncoder;
+import com.graphhopper.routing.util.NoOpAlgorithmPreparation;
+import com.graphhopper.routing.util.ShortestCalc;
+import com.graphhopper.routing.util.WeightCalculation;
 import com.graphhopper.util.Helper;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.StopWatch;
@@ -56,7 +64,7 @@ public class GraphHopperServlet extends HttpServlet {
     @Inject private GraphHopper hopper;
     @Inject private Geocoding geocoding;
     @Inject
-    @Named("defaultalgorithm")
+    @Named("defaultAlgorithm")
     private String defaultAlgorithm;
     @Inject
     @Named("timeout")
@@ -100,20 +108,36 @@ public class GraphHopperServlet extends HttpServlet {
             minPathPrecision = Double.parseDouble(getParam(req, "minPathPrecision"));
         } catch (Exception ex) {
         }
+        String vehicleStr = getParam(req, "algoVehicle");
+        FlagsEncoder algoVehicle = new CarFlagsEncoder();
+        if ("foot".equalsIgnoreCase(vehicleStr))
+            algoVehicle = new FootFlagsEncoder();
+        else if ("bike".equalsIgnoreCase(vehicleStr))
+            algoVehicle = new BikeFlagsEncoder();
+
+        WeightCalculation algoType = new FastestCalc(algoVehicle);
+        if ("shortest".equalsIgnoreCase(getParam(req, "algoType")))
+            algoType = new ShortestCalc();
+        
+        String algoStr = defaultAlgorithm;
+        if (!Helper.isEmpty(algoStr))
+            algoStr = getParam(req, "algo");
+
         try {
             if (minPathPrecision <= 0)
                 hopper.simplify(false);
 
             sw = new StopWatch().start();
             GHResponse p = hopper.route(new GHRequest(start, end).
-                    algorithm(defaultAlgorithm).
+                    vehicle(algoVehicle).type(algoType).
+                    algorithm(algoStr).
                     minPathPrecision(minPathPrecision));
             float took = sw.stop().getSeconds();
             String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
             PointList points = p.points();
-            if (p.found()) {
+            if (p.found())
                 infoStr += " path found";
-            } else
+            else
                 infoStr += " NO path found";
 
             double distInKM = p.distance() / 1000;
@@ -143,7 +167,7 @@ public class GraphHopperServlet extends HttpServlet {
             writeJson(req, res, builder.build());
             logger.info(req.getQueryString() + " " + infoStr + " " + start + "->" + end
                     + ", distance: " + distInKM + ", time:" + Math.round(p.time() / 60f) + "min, points:" + points.size()
-                    + ", took:" + took + ", debug - " + p.debugInfo());
+                    + ", took:" + took + ", debug - " + p.debugInfo() + ", " + algoStr + ", " + algoType + ", " + algoVehicle);
         } catch (Exception ex) {
             logger.error("Error while query:" + start + "->" + end, ex);
             writeError(res, SC_INTERNAL_SERVER_ERROR, "Problem occured:" + ex.getMessage());

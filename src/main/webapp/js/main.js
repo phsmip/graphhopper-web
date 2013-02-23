@@ -20,8 +20,10 @@ var iconFrom = L.icon({
 
 var bounds = {};
 var ghRequest = new GHRequest();
+ghRequest.algoVehicle = "car";
+ghRequest.algoType = "fastest";
 
-LOCAL=false;
+LOCAL=true;
 var host;
 if(LOCAL)
     host = "http://localhost:8989";
