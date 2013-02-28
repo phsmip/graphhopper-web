@@ -20,8 +20,8 @@ var iconFrom = L.icon({
 
 var bounds = {};
 var ghRequest = new GHRequest();
-ghRequest.algoVehicle = "car";
-ghRequest.algoType = "fastest";
+ghRequest.algoVehicle = "foot";
+ghRequest.algoType = "shortest";
 
 LOCAL=true;
 var host;
@@ -57,7 +57,7 @@ $(document).ready(function(e) {
             else
                 resolveCoords(params.point[0], params.point[1]);                
         }
-    })
+    });
 });
 
 function resolveCoords(fromStr, toStr) { 
@@ -182,7 +182,7 @@ function resolve(fromOrTo, point) {
         $("#" + fromOrTo + "Flag").show();
         $("#" + fromOrTo + "Indicator").hide();
         return point;
-    })   
+    });
 }
 
 var getInfoTmpCounter = 0;
@@ -305,9 +305,9 @@ function routeLatLng(request) {
         
         var tmpTime = round(json.route.time / 60, 1000);
         if(tmpTime > 60) 
-            tmpTime = round(tmpTime / 60, 1) + "h " + round(tmpTime % 60, 1) + "min";
+            tmpTime = floor(tmpTime / 60, 1) + "h " + round(tmpTime % 60, 1) + "min";
         else
-            tmpTime = tmpTime % 60+ "min";
+            tmpTime = round(tmpTime % 60, 1) + "min";
         distDiv.html("distance: " + round(json.route.distance, 100) + "km<br/>"
             +"time: " + tmpTime + "<br/>"
             +"took: " + round(json.info.took, 1000) + "s<br/>"
@@ -317,10 +317,16 @@ function routeLatLng(request) {
         osrmLink.attr("href", "http://map.project-osrm.org/?loc=" + from + "&loc=" + to);
         $("#info").append(osrmLink);
         var googleLink = $("<a>Google</a> ");
-        googleLink.attr("href", "http://maps.google.com/?q=from:" + from + "+to:" + to);
+        var addToGoogle = "";
+        var addToBing = "";
+        if(request.algoVehicle == "foot") {
+            addToGoogle = "&dirflg=w";
+            addToBing = "&mode=W";
+        }
+        googleLink.attr("href", "http://maps.google.com/?q=from:" + from + "+to:" + to + addToGoogle);
         $("#info").append(googleLink);
         var bingLink = $("<a>Bing</a> ");        
-        bingLink.attr("href", "http://www.bing.com/maps/default.aspx?rtp=adr." + from + "~adr." + to);
+        bingLink.attr("href", "http://www.bing.com/maps/default.aspx?rtp=adr." + from + "~adr." + to + addToBing);
         $("#info").append(bingLink);
         $('.defaulting').each(function(index, element) {
             $(element).css("color", "black");
@@ -481,6 +487,11 @@ function initForm() {
     });
 }
 
+function floor(val, precision) {
+    if(!precision)
+        precision = 1e6;
+    return Math.floor(val * precision) / precision;
+}
 function round(val, precision) {
     if(!precision)
         precision = 1e6;

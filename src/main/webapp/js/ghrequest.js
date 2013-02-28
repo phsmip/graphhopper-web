@@ -6,7 +6,7 @@ GHRequest = function(str) {
     this.to = new GHInput(str);
     this.algoType = "shortest";
     this.algoVehicle = "car";
-}
+};
 
 GHRequest.prototype.doRequest = function(host, demoUrl, callback) {
     var encodedPolyline = true;
@@ -35,7 +35,7 @@ GHRequest.prototype.doRequest = function(host, demoUrl, callback) {
         "type": "GET",
         "dataType": "jsonp"
     });
-}
+};
 
 function createCallback(errorFallback) {
     return function(err) {
