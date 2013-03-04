@@ -19,7 +19,6 @@
 package com.graphhopper.http;
 
 import com.graphhopper.search.Geocoding;
-import com.graphhopper.util.shapes.GHInfoPoint;
 import com.graphhopper.GHRequest;
 import com.graphhopper.GraphHopper;
 import com.graphhopper.GHResponse;
@@ -31,7 +30,7 @@ import com.graphhopper.util.Helper;
 import com.graphhopper.util.PointList;
 import com.graphhopper.util.StopWatch;
 import com.graphhopper.util.shapes.BBox;
-import com.graphhopper.util.shapes.GHPoint;
+import com.graphhopper.util.shapes.GHPlace;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
@@ -94,10 +93,10 @@ public class GraphHopperServlet extends HttpServlet {
 
     void writePath(HttpServletRequest req, HttpServletResponse res) throws Exception {
         StopWatch sw = new StopWatch().start();
-        List<GHInfoPoint> infoPoints = getPoints(req);
+        List<GHPlace> infoPoints = getPoints(req);
         float tookGeocoding = sw.stop().getSeconds();
-        GHPoint start = infoPoints.get(0);
-        GHPoint end = infoPoints.get(1);
+        GHPlace start = infoPoints.get(0);
+        GHPlace end = infoPoints.get(1);
         // we can reduce the path length based on the maximum differences to the original coordinates
         double minPathPrecision = 1;
         try {
@@ -110,9 +109,9 @@ public class GraphHopperServlet extends HttpServlet {
         if ("shortest".equalsIgnoreCase(getParam(req, "algoType")))
             algoType = new ShortestCalc();
 
-        String algoStr = defaultAlgorithm;
-        if (!Helper.isEmpty(algoStr))
-            algoStr = getParam(req, "algo");
+        String algoStr = getParam(req, "algo");
+        if (Helper.isEmpty(algoStr))
+            algoStr = defaultAlgorithm;
 
         try {
             if (minPathPrecision <= 0)
@@ -122,7 +121,7 @@ public class GraphHopperServlet extends HttpServlet {
             GHResponse p = hopper.route(new GHRequest(start, end).
                     vehicle(algoVehicle).type(algoType).
                     algorithm(algoStr).
-                    minPathPrecision(minPathPrecision));
+                    putHint("douglas.minprecision", minPathPrecision));
             float took = sw.stop().getSeconds();
             String infoStr = req.getRemoteAddr() + " " + req.getLocale() + " " + req.getHeader("User-Agent");
             PointList points = p.points();
@@ -221,8 +220,9 @@ public class GraphHopperServlet extends HttpServlet {
         res.sendError(SC_BAD_REQUEST, errorMessage);
     }
 
-    private List<GHInfoPoint> getPoints(HttpServletRequest req) throws IOException {
+    private List<GHPlace> getPoints(HttpServletRequest req) throws IOException {
         String[] pointsAsStr = getParams(req, "point");
+        // allow two formats
         if (pointsAsStr.length == 0) {
             String from = getParam(req, "from");
             String to = getParam(req, "to");
@@ -230,7 +230,7 @@ public class GraphHopperServlet extends HttpServlet {
                 pointsAsStr = new String[]{from, to};
         }
 
-        final List<GHInfoPoint> infoPoints = new ArrayList<GHInfoPoint>();
+        final List<GHPlace> infoPoints = new ArrayList<GHPlace>();
         List<GHThreadPool.GHWorker> workers = new ArrayList<GHThreadPool.GHWorker>();
         for (int pointNo = 0; pointNo < pointsAsStr.length; pointNo++) {
             final String str = pointsAsStr[pointNo];
@@ -239,21 +239,21 @@ public class GraphHopperServlet extends HttpServlet {
                 if (fromStrs.length == 2) {
                     double fromLat = Double.parseDouble(fromStrs[0]);
                     double fromLon = Double.parseDouble(fromStrs[1]);
-                    infoPoints.add(new GHInfoPoint(fromLat, fromLon));
+                    infoPoints.add(new GHPlace(fromLat, fromLon));
                     continue;
                 }
             } catch (Exception ex) {
             }
 
             final int index = infoPoints.size();
-            infoPoints.add(new GHInfoPoint(Double.NaN, Double.NaN).name(str));
+            infoPoints.add(new GHPlace(Double.NaN, Double.NaN).name(str));
             GHThreadPool.GHWorker worker = new GHThreadPool.GHWorker(timeOutInMillis) {
                 @Override public String name() {
                     return "geocoding search " + str;
                 }
 
                 @Override public void run() {
-                    List<GHInfoPoint> tmpPoints = geocoding.search(str);
+                    List<GHPlace> tmpPoints = geocoding.name2point(new GHPlace(str));
                     if (!tmpPoints.isEmpty())
                         infoPoints.set(index, tmpPoints.get(0));
                 }
@@ -262,7 +262,7 @@ public class GraphHopperServlet extends HttpServlet {
             threadPool.enqueue(worker);
         }
         threadPool.waitFor(workers, timeOutInMillis);
-        for (GHInfoPoint p : infoPoints) {
+        for (GHPlace p : infoPoints) {
             if (Double.isNaN(p.lat))
                 throw new IllegalArgumentException("[nominatim] Not all points could be resolved! " + infoPoints);
         }
@@ -273,7 +273,7 @@ public class GraphHopperServlet extends HttpServlet {
 
         // TODO execute algorithm multiple times!
         if (infoPoints.size() != 2)
-            throw new IllegalArgumentException("TODO! At the moment max. 2 points has to be specified");
+            throw new IllegalArgumentException("TODO! At the moment only 2 points can be specified");
 
         return infoPoints;
     }

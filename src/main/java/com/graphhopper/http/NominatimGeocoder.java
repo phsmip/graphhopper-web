@@ -1,9 +1,9 @@
 package com.graphhopper.http;
 
 import com.graphhopper.search.Geocoding;
-import com.graphhopper.util.shapes.GHInfoPoint;
+import com.graphhopper.search.ReverseGeocoding;
 import com.graphhopper.util.shapes.BBox;
-import com.graphhopper.util.shapes.GHPoint;
+import com.graphhopper.util.shapes.GHPlace;
 import java.io.IOException;
 import java.net.HttpURLConnection;
 import java.net.URL;
@@ -19,13 +19,13 @@ import org.slf4j.LoggerFactory;
  *
  * @author Peter Karich
  */
-public class NominatimGeocoder implements Geocoding {
+public class NominatimGeocoder implements Geocoding, ReverseGeocoding {
 
     public static void main(String[] args) {
-        System.out.println("search " + new NominatimGeocoder().search("bayreuth", "berlin"));
+        System.out.println("search " + new NominatimGeocoder().name2point(new GHPlace("bayreuth"), new GHPlace("berlin")));
 
-        System.out.println("reverse " + new NominatimGeocoder().reverse(new GHPoint(49.9027606, 11.577197),
-                new GHPoint(52.5198535, 13.4385964)));
+        System.out.println("reverse " + new NominatimGeocoder().point2name(new GHPlace(49.9027606, 11.577197),
+                new GHPlace(52.5198535, 13.4385964)));
     }
     private String nominatimUrl;
     private String nominatimReverseUrl;
@@ -49,11 +49,11 @@ public class NominatimGeocoder implements Geocoding {
         return this;
     }
 
-    @Override public List<GHInfoPoint> search(String... places) {
-        List<GHInfoPoint> resList = new ArrayList<GHInfoPoint>();
-        for (String place : places) {
+    @Override public List<GHPlace> name2point(GHPlace... places) {
+        List<GHPlace> resList = new ArrayList<GHPlace>();
+        for (GHPlace place : places) {
             // see https://trac.openstreetmap.org/ticket/4683 why limit=3 and not 1
-            String url = nominatimUrl + "?format=json&q=" + WebHelper.encodeURL(place) + "&limit=3";
+            String url = nominatimUrl + "?format=json&q=" + WebHelper.encodeURL(place.name()) + "&limit=3";
             if (bounds != null) {
                 // minLon, minLat, maxLon, maxLat => left, top, right, bottom
                 url += "&bounded=1&viewbox=" + bounds.minLon + "," + bounds.maxLat + "," + bounds.maxLon + "," + bounds.minLat;
@@ -67,7 +67,7 @@ public class NominatimGeocoder implements Geocoding {
                 JSONObject json = new JSONArray(str).getJSONObject(0);
                 double lat = json.getDouble("lat");
                 double lon = json.getDouble("lon");
-                GHInfoPoint p = new GHInfoPoint(lat, lon);
+                GHPlace p = new GHPlace(lat, lon);
                 p.name(json.getString("display_name"));
                 resList.add(p);
             } catch (Exception ex) {
@@ -77,9 +77,9 @@ public class NominatimGeocoder implements Geocoding {
         return resList;
     }
 
-    @Override public List<GHInfoPoint> reverse(GHPoint... points) {
-        List<GHInfoPoint> resList = new ArrayList<GHInfoPoint>();
-        for (GHPoint point : points) {
+    @Override public List<GHPlace> point2name(GHPlace... points) {
+        List<GHPlace> resList = new ArrayList<GHPlace>();
+        for (GHPlace point : points) {
             try {
                 String url = nominatimReverseUrl + "?lat=" + point.lat + "&lon=" + point.lon
                         + "&format=json&zoom=16";
@@ -104,7 +104,7 @@ public class NominatimGeocoder implements Geocoding {
                     name += address.get("state") + ", ";
                 if (address.has("country"))
                     name += address.get("country");
-                resList.add(new GHInfoPoint(lat, lon).name(name));
+                resList.add(new GHPlace(lat, lon).name(name));
             } catch (Exception ex) {
                 logger.error("problem while geocoding (reverse " + point + "): " + ex.getMessage());
             }

@@ -72,13 +72,13 @@ public class GraphHopperWeb implements GraphHopperAPI {
                     + "&to=" + request.to().lat + "," + request.to().lon
                     + "&type=json"
                     + "&encodedPolyline=true"
-                    + "&minPathPrecision=" + request.minPathPrecision()
+                    + "&minPathPrecision=" + request.getHint("douglas.minprecision", 1)
                     + "&algo=" + request.algorithm();
             JSONObject json = new JSONObject(WebHelper.readString(new URL(url).openStream()));
             took = json.getJSONObject("info").getDouble("took");
             JSONObject route = json.getJSONObject("route");
             double distance = route.getDouble("distance");
-            int timeInSeconds = route.getInt("time");            
+            int timeInSeconds = route.getInt("time");
             PointList list = WebHelper.decodePolyline(route.getString("coordinates"), 100);
             return new GHResponse(list).distance(distance).time(timeInSeconds);
         } catch (Exception ex) {
